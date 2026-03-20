@@ -11,6 +11,18 @@
 
 ---
 
+## 📸 Screenshots
+
+| Main Window | Run Serial |
+|---|---|
+| ![Main Window](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/karanik_WinMaintenance.png) | ![Run Serial](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/karanik_WinMaintenanceRunSerial.png) |
+
+| PowerShell Output | Settings |
+|---|---|
+| ![PowerShell Output](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/karanik_WinMaintenance_Powershell.png) | ![Settings](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/karanik_WinMaintenance_settings.png) |
+
+---
+
 ## ✨ Overview
 
 **karanik_WinMaintenance** is a professional Windows maintenance toolkit built as a WPF GUI launcher written entirely in PowerShell. It provides a clean, organized interface for running a curated collection of system administration scripts — without needing to open a terminal or remember command syntax.
