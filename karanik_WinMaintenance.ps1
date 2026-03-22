@@ -366,7 +366,11 @@ $Catalog = @(
   [pscustomobject]@{ Id="6.1"; Title="Reset RDS Licensing Grace Period (Windows Server)"; Type="Remote";  ScriptName="RDS-GracePeriod-Manager.ps1";    Sha256=$null; Group="Extra Tools" },
   [pscustomobject]@{ Id="6.2"; Title="Microsoft Activation Scripts (MAS)";                Type="Inline";  Command="irm https://get.activated.win | iex"; Sha256=$null; Group="Extra Tools" },
   [pscustomobject]@{ Id="6.3"; Title="WinScript";                                         Type="Inline";  Command='irm "https://winscript.cc/irm" | iex'; Sha256=$null; Group="Extra Tools" },
-  [pscustomobject]@{ Id="6.4"; Title="Chris Titus Tech's Windows Utility";                Type="Inline";  Command='irm "https://christitus.com/win" | iex'; Sha256=$null; Group="Extra Tools" }
+  [pscustomobject]@{ Id="6.4"; Title="Chris Titus Tech's Windows Utility";                Type="Inline";  Command='irm "https://christitus.com/win" | iex'; Sha256=$null; Group="Extra Tools"; Tooltip=$null },
+
+  # -- 7. Office Tools --
+  [pscustomobject]@{ Id="7.1"; Title="Office Tools"; Type="Standalone"; ScriptName="Manage-OfficeUpdates.ps1"; Sha256=$null; Group="Office Tools";
+    Tooltip="Microsoft 365 / Office Click-to-Run Manager + SaRA Enterprise`n`nUPDATE CONTROL`n  1. Enable automatic updates   (registry policy = 1)`n  2. Disable automatic updates  (registry policy = 0)`n  3. Check update status and version`n  4. Run update now (OfficeC2RClient /runnow)`n`nREPAIR`n  5a. Quick Repair  - local, no internet required`n  5b. Online Repair - full re-download from Microsoft`n`nCONTROL PANEL`n  6.  Open Mail (Microsoft Outlook) - mlcfg32.cpl`n`nSaRA ENTERPRISE (Microsoft Support and Recovery Assistant)`n  7.  Uninstall ALL versions of Office`n  8.  Uninstall specific version (M365 / 2021 / 2019 / 2016 ...)`n  9.  Outlook Scan - diagnostics and config report`n  10. Reset Office Activation - clears licenses and cached accounts`n  11. Fix Office Activation issues - automated recovery`n  12. Fix Teams Meeting Add-in for Outlook`n  13. Outlook Calendar Scan (CalCheck)" }
 )
 
 
@@ -925,7 +929,7 @@ function Build-Tree {
   # Clear multi-selection state when tree is rebuilt
   if ($Script:MultiSelected) { $Script:MultiSelected.Clear() }
 
-  $order = @("Main","PowerShell Tools","Cleaning Tools","Export Tools","Fix Tools","Extra Tools")
+  $order = @("Main","PowerShell Tools","Cleaning Tools","Export Tools","Fix Tools","Extra Tools","Office Tools")
   foreach ($grpName in $order) {
     $items = @($Catalog | Where-Object Group -eq $grpName | Sort-Object { [double]($_.Id -replace '[^0-9.]','') })
 
@@ -966,6 +970,16 @@ function Build-Tree {
       $leaf.Header = $item.Title
       $leaf.Tag    = $item
       $leaf.Style  = $Window.FindResource("TreeLeafStyle")
+
+      # Tooltip from catalog entry
+      if ($item.Tooltip) {
+        $tt            = New-Object System.Windows.Controls.ToolTip
+        $tt.MaxWidth   = 420
+        $tt.Content    = $item.Tooltip
+        $tt.FontFamily = "Consolas"
+        $tt.FontSize   = 11
+        $leaf.ToolTip  = $tt
+      }
 
       # Double-click runs the item immediately
       $leaf.Add_MouseDoubleClick({
@@ -1081,6 +1095,8 @@ function Build-Tree {
   }
 
   $tvMenu.UpdateLayout()
+  # Re-apply current theme so new items get correct colors (guard: function defined later)
+  if (Get-Command Apply-Theme -ErrorAction SilentlyContinue) { Apply-Theme $State.Theme }
 }
 
 # Multi-select implementation using a manual selection set.
@@ -1539,9 +1555,67 @@ $Script:WorkerJob = {
         $proc = [System.Diagnostics.Process]::Start($psi)
         if ($proc) {
           Report ("Standalone window launched (PID {0})." -f $proc.Id) "INFO"
-          $proc.WaitForExit()
-          Report ("Standalone process exited with code: {0}" -f $proc.ExitCode) "INFO"
-          return $proc.ExitCode
+          Report ("Tailing log: {0}" -f $childLogPath) "INFO"
+
+          # Tail the child log file and forward lines to the launcher UI.
+          # UseShellExecute=true means we cannot redirect stdout/stderr,
+          # but the child writes structured log lines to $childLogPath which
+          # we can tail-poll while it runs.
+          $tailPos  = 0L
+          $pollMs   = 300
+          $started  = [datetime]::Now
+
+          while ($true) {
+            $elapsed = ([datetime]::Now - $started).TotalMilliseconds
+            if ($elapsed -ge ($ExecTimeoutSec * 1000)) {
+              Report ("Standalone timeout after {0}s." -f $ExecTimeoutSec) "WARN"
+              break
+            }
+
+            # Tail log file -> ProgressQueue (same mechanism as Remote scripts)
+            if ([System.IO.File]::Exists($childLogPath)) {
+              try {
+                $fs      = [System.IO.File]::Open($childLogPath,
+                             [System.IO.FileMode]::Open,
+                             [System.IO.FileAccess]::Read,
+                             [System.IO.FileShare]::ReadWrite)
+                $fs.Seek($tailPos, [System.IO.SeekOrigin]::Begin) | Out-Null
+                $sr      = [System.IO.StreamReader]::new($fs, [System.Text.Encoding]::UTF8)
+                $newText = $sr.ReadToEnd()
+                $tailPos = $fs.Position
+                $sr.Dispose(); $fs.Dispose()
+                if ($newText.Length -gt 0) {
+                  foreach ($ln in ($newText -split "`r?`n")) {
+                    if ($ln.Trim()) { $ProgressQueue.Enqueue($ln) }
+                  }
+                }
+              } catch { }
+            }
+
+            if ($proc.HasExited) { break }
+            [System.Threading.Thread]::Sleep($pollMs)
+          }
+
+          # Final drain after process exits
+          if ([System.IO.File]::Exists($childLogPath)) {
+            try {
+              $fs      = [System.IO.File]::Open($childLogPath,
+                           [System.IO.FileMode]::Open,
+                           [System.IO.FileAccess]::Read,
+                           [System.IO.FileShare]::ReadWrite)
+              $fs.Seek($tailPos, [System.IO.SeekOrigin]::Begin) | Out-Null
+              $sr      = [System.IO.StreamReader]::new($fs, [System.Text.Encoding]::UTF8)
+              $newText = $sr.ReadToEnd()
+              $sr.Dispose(); $fs.Dispose()
+              foreach ($ln in ($newText -split "`r?`n")) {
+                if ($ln.Trim()) { $ProgressQueue.Enqueue($ln) }
+              }
+            } catch { }
+          }
+
+          $exitCode = try { [int]$proc.ExitCode } catch { 0 }
+          Report ("Standalone exited. Code: {0}" -f $exitCode) "INFO"
+          return $exitCode
         }
       } catch {
         Report ("Failed to launch standalone: {0}" -f $_.Exception.Message) "ERROR"
@@ -2509,14 +2583,40 @@ function Apply-Theme {
       "Light" {
         $Window.Background = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xFF,0xFF,0xFF))
         $Window.Foreground = [System.Windows.Media.Brushes]::Black
+        $txtOutput.Foreground   = [System.Windows.Media.Brushes]::Black
+        $txtOutput.Background   = [System.Windows.Media.Brushes]::White
+        $txtTerminal.Foreground = [System.Windows.Media.Brushes]::Black
+        $txtTerminal.Background = [System.Windows.Media.Brushes]::White
+        $tvMenu.Background      = [System.Windows.Media.Brushes]::Transparent
+        $tvMenu.Foreground      = [System.Windows.Media.Brushes]::Black
+        # Reset all TreeViewItems to light colors
+        foreach ($item in $tvMenu.Items) {
+            $item.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x55,0x55,0x55))
+            $item.Background = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xF2,0xF4,0xF7))
+            foreach ($leaf in $item.Items) { $leaf.Foreground = [System.Windows.Media.Brushes]::Black }
+        }
       }
       "Dark" {
-        $Window.Background = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1E,0x1E,0x1E))
-        $Window.Foreground = [System.Windows.Media.Brushes]::White
+        $darkBg   = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1E,0x1E,0x1E))
+        $darkFg   = [System.Windows.Media.Brushes]::White
+        $darkGrpBg= [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2D,0x2D,0x2D))
+        $darkGrpFg= [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xBB,0xBB,0xBB))
+        $darkLeafFg = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xE8,0xE8,0xE8))
+
+        $Window.Background      = $darkBg
+        $Window.Foreground      = $darkFg
         $txtOutput.Foreground   = [System.Windows.Media.Brushes]::LightGray
-        $txtOutput.Background   = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1E,0x1E,0x1E))
+        $txtOutput.Background   = $darkBg
         $txtTerminal.Foreground = [System.Windows.Media.Brushes]::LightGray
-        $txtTerminal.Background = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1E,0x1E,0x1E))
+        $txtTerminal.Background = $darkBg
+        $tvMenu.Background      = $darkBg
+        $tvMenu.Foreground      = $darkFg
+        # Apply dark colors to all TreeViewItems (groups + leaves)
+        foreach ($item in $tvMenu.Items) {
+            $item.Foreground = $darkGrpFg
+            $item.Background = $darkGrpBg
+            foreach ($leaf in $item.Items) { $leaf.Foreground = $darkLeafFg }
+        }
       }
       default {
         $Window.ClearValue([System.Windows.Controls.Control]::BackgroundProperty)
@@ -2525,6 +2625,13 @@ function Apply-Theme {
         $txtOutput.ClearValue([System.Windows.Controls.Control]::ForegroundProperty)
         $txtTerminal.ClearValue([System.Windows.Controls.Control]::BackgroundProperty)
         $txtTerminal.ClearValue([System.Windows.Controls.Control]::ForegroundProperty)
+        $tvMenu.ClearValue([System.Windows.Controls.Control]::BackgroundProperty)
+        $tvMenu.ClearValue([System.Windows.Controls.Control]::ForegroundProperty)
+        foreach ($item in $tvMenu.Items) {
+            $item.ClearValue([System.Windows.Controls.Control]::ForegroundProperty)
+            $item.ClearValue([System.Windows.Controls.Control]::BackgroundProperty)
+            foreach ($leaf in $item.Items) { $leaf.ClearValue([System.Windows.Controls.Control]::ForegroundProperty) }
+        }
       }
     }
     Ui-Log ("Theme set to: {0}" -f $Mode) "INFO"
