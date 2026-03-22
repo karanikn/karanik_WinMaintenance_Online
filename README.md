@@ -1,6 +1,6 @@
 # karanik_WinMaintenance
 
-[![GitHub release](https://img.shields.io/badge/version-1.6-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
+[![GitHub release](https://img.shields.io/badge/version-1.7-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-blue?style=flat-square&logo=powershell)](https://github.com/PowerShell/PowerShell)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Server-lightgrey?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
@@ -41,13 +41,13 @@ Designed for **IT administrators, help desk engineers, and power users** who mai
 
 ### Option 1 — One-liner (no download needed)
 
-Open **PowerShell as Administrator** and run:
+Open **PowerShell** and run:
 
 ```powershell
 irm "https://karanik.gr/win" | iex
 ```
 
-This downloads and launches the application in a single command — the same way tools like Chris Titus Tech's WinUtil work.
+This downloads and launches the application in a single command — the same way tools like Chris Titus Tech's WinUtil work. The launcher **automatically requests Administrator elevation** (UAC prompt) if not already running elevated.
 
 ### Option 2 — Download and run the PS1
 
@@ -65,7 +65,7 @@ powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File "$env:TEMP\karanik_
 |---|---|
 | OS | Windows 10 / Windows 11 / Windows Server 2016+ |
 | PowerShell | 5.1 or later (PS7 also supported) |
-| Privileges | Must run as **Administrator** |
+| Privileges | Administrator (auto-elevated via UAC if needed) |
 | Internet | Required to download scripts on first run (cached after) |
 
 ---
@@ -75,8 +75,8 @@ powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File "$env:TEMP\karanik_
 The application features a clean two-panel layout:
 
 - **Left panel** — Collapsible script catalog organized by category
-- **Right panel (top)** — Live log output with color-coded `[INFO]` / `[SUCCESS]` / `[WARN]` / `[ERROR]` entries
-- **Right panel (bottom)** — Terminal output (raw stdout/stderr from child scripts)
+- **Right panel (top)** — Live log output (RichTextBox) with color-coded lines: `[ERROR]` red, `[WARN]` orange, `[SUCCESS]`/`[OK]` green, `[DEBUG]` grey, `[SCAN]`/`[RESULT]` blue, `[BATCH]` purple
+- **Right panel (bottom)** — Terminal output (RichTextBox) with the same color coding; shows child script console output
 - **Toolbar** — Run, Run Serial, Force re-download, Verbose, Stealth Mode
 - **Search bar** — Real-time filtering of the script catalog
 - **Theme selector** — Auto (follows system), Light, Dark
@@ -224,12 +224,23 @@ Useful for deployments where no trace of the tool should remain after use.
 | **UI** | WPF (Windows Presentation Foundation) via `[System.Windows.Markup.XamlReader]` |
 | **Threading** | `[PowerShell]::Create()` + dedicated Runspace for background execution; `ConcurrentQueue` for thread-safe UI updates |
 | **Script delivery** | `System.Net.WebClient.DownloadFile()` with validation (checks first 512 bytes for HTML/error responses) |
-| **Logging** | Dual-stream: structured `[INFO]/[SUCCESS]/[WARN]/[ERROR]` to log file + raw stdout/stderr to terminal panel |
+| **Logging** | Real-time log-file tailing to color-coded RichTextBox panels; structured `[INFO]/[SUCCESS]/[WARN]/[ERROR]` levels; child scripts write to `KARANIK_WM_LOGFILE` env var path |
 | **Execution types** | `Remote` (download+cache+run), `Standalone` (separate STA window for WPF scripts), `Inline` (irm\|iex in new elevated window) |
 
 ---
 
 ## 📝 Changelog
+
+### v1.7 — March 2026
+
+- **Auto-elevation** — launcher automatically requests Administrator privileges (UAC) at startup; all child scripts inherit elevation without individual admin checks
+- **Real-time log tailing** — replaced blocking stdout/stderr pipe capture (`RedirectStandardOutput`) with pure log-file tailing; logs from all child scripts — including GUI apps like PSModuleManager — now stream to the launcher's Log panel in real-time while the script is running
+- **Color-coded log output** — both Log and Terminal panels upgraded from `TextBox` to `RichTextBox` with per-line coloring: `[ERROR]` red, `[WARN]` orange, `[SUCCESS]`/`[OK]` green, `[DEBUG]` grey, `[SCAN]`/`[RESULT]` blue, `[BATCH]` purple; adapts to both Light and Dark themes
+- **Non-blocking UI during execution** — Settings, Open Log, Exit menu items and the script tree view remain fully interactive while a script is running; only Run/Run Serial buttons are disabled to prevent double-execution
+- **PSModuleManager scan fix** — replaced `& $Exe -Command` stdout capture (which silently lost output inside MTA Runspaces) with temp `.ps1` script file + temp output file via `System.Diagnostics.Process`; scan now correctly detects all installed modules (was returning 0 in previous versions)
+- **PSModuleManager install/update fix** — batch install/update operations use the same temp-file approach; resolves `ERROR: Unknown` failures when updating modules (e.g. Microsoft.Graph)
+- **PSModuleManager `-ExecutionPolicy Bypass`** — added to all 24+ child process invocations across the entire PSModuleManager codebase
+- **PSModuleManager launcher integration** — PSModuleManager now respects `KARANIK_WM_LOGFILE` environment variable, writing its log to the launcher-specified path for seamless log tailing
 
 ### v1.6 — March 2026
 
