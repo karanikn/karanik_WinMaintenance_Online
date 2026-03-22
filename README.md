@@ -1,6 +1,6 @@
 # karanik_WinMaintenance
 
-[![GitHub release](https://img.shields.io/badge/version-1.5-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
+[![GitHub release](https://img.shields.io/badge/version-1.6-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-blue?style=flat-square&logo=powershell)](https://github.com/PowerShell/PowerShell)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Server-lightgrey?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
@@ -20,6 +20,10 @@
 | PowerShell Output | Settings |
 |---|---|
 | ![PowerShell Output](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/karanik_WinMaintenance_Powershell.png) | ![Settings](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/karanik_WinMaintenance_settings.png) |
+
+| Office Manager | PS Module Manager |
+|---|---|
+| ![Office Manager](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/OfficeManager.png) | ![PS Module Manager](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/ModuleManager.png) |
 
 ---
 
@@ -156,6 +160,38 @@ The application features a clean two-panel layout:
 | 6.3 | WinScript | Launches `irm https://winscript.cc/irm \| iex` |
 | 6.4 | Chris Titus Tech's Windows Utility | Launches `irm https://christitus.com/win \| iex` |
 
+### 🖥️ Office Tools
+
+| ID | Script | Description |
+|---|---|---|
+| 7.1 | Office Manager | WPF GUI for Microsoft 365 / Office Click-to-Run management + SaRA Enterprise integration. Runs as a `Standalone` script (separate STA window, real-time log forwarding to the launcher). |
+
+**Office C2R — Update & Repair:**
+
+| # | Action | Details |
+|---|---|---|
+| 1 | Enable Automatic Updates | Sets registry policy `enableautomaticupdates = 1` |
+| 2 | Disable Automatic Updates | Sets registry policy `enableautomaticupdates = 0` |
+| 3 | Check Update Status & Version | Reads C2R registry config; displays Version, Channel, Auto-Update state inline |
+| 4 | Run Update Now | Launches `OfficeC2RClient.exe updateapp /runnow` |
+| 5a | Quick Repair | Local repair — no internet required |
+| 5b | Online Repair | Full re-download from Microsoft (~GB, 20–45 min) |
+| 6 | Open Mail (Outlook) | Opens Outlook Mail Profile Manager (`outlook.exe /manageprofiles` or `mlcfg32.cpl`) |
+
+**SaRA Enterprise (Microsoft Support and Recovery Assistant):**
+
+Downloaded from Microsoft on demand and cached in `karanik_WinMaintenance\Cache\SaRA_Enterprise.zip`. Builds expire after 90 days — auto-refreshed when > 80 days old. Each run logs to a dedicated `SaRA_<Scenario>_<timestamp>\` subfolder inside the Logs directory.
+
+| # | Scenario | SaRAcmd.exe command |
+|---|---|---|
+| 7 | Uninstall ALL versions of Office | `OfficeScrubScenario -OfficeVersion All` |
+| 8 | Uninstall specific version (picker) | `OfficeScrubScenario -OfficeVersion [M365\|2021\|2019\|2016...]` |
+| 9 | Outlook Scan | `ExpertExperienceAdminTask` |
+| 10 | Reset Office Activation | `ResetOfficeActivation -CloseOffice` |
+| 11 | Fix Office Activation | `OfficeActivationScenario -CloseOffice` |
+| 12 | Fix Teams Meeting Add-in | `TeamsAddinScenario -CloseOutlook` |
+| 13 | Outlook Calendar Scan (CalCheck) | `OutlookCalendarCheckTask` |
+
 ---
 
 ## 🗂️ File Structure
@@ -194,6 +230,17 @@ Useful for deployments where no trace of the tool should remain after use.
 ---
 
 ## 📝 Changelog
+
+### v1.6 — March 2026
+
+- **Office Tools** — New `Standalone` script group (`7.x`) with two-column WPF GUI for Microsoft 365 / Office Click-to-Run management and SaRA Enterprise integration (13 actions across Update Control, Repair, Control Panel, and SaRA scenarios)
+- **SaRA Enterprise integration** — `Manage-OfficeUpdates.ps1` downloads and caches `SaRACmd_17_01_2877_000.zip` from GitHub; auto-refreshes when cache is > 80 days old (SaRA builds expire at 90 days); each scenario runs in a separate elevated CMD window with dedicated log subfolder
+- **Standalone log forwarding** — Standalone scripts now forward their structured log lines to the launcher's main log panel in real-time via log-file tail-polling (same mechanism as Remote scripts); launcher stays responsive while the Standalone window is open
+- **Inline status panel** — Office Manager displays Version / Channel / Auto-Update state directly in the window after status checks (no MessageBox); dark console strip with Hide button
+- **Tooltip support** — Catalog entries now have an optional `Tooltip` field; Office Tools entry shows a full feature summary on hover (420px Consolas tooltip)
+- **XML comment fix** — Resolved silent XAML parse failure caused by `--` inside XML comments in here-strings; all `<!-- -- text -- -->` patterns replaced with `<!-- text -->`
+- **Encoding hardening** — All scripts saved as UTF-8 without BOM with `
+` line endings; em-dashes and box-drawing characters replaced with ASCII equivalents to prevent PS encoding misinterpretation
 
 ### v1.5 — March 2026
 
