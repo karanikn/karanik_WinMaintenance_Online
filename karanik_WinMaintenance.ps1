@@ -25,6 +25,27 @@ Env vars passed to child scripts:
   KARANIK_WM_LOGDIR, KARANIK_WM_CACHEDIR, KARANIK_WM_TEMPDIR, KARANIK_WM_VERBOSE
 #>
 
+#region Admin Auto-Elevation
+# If not running as Administrator, relaunch elevated (UAC prompt).
+# This ensures all child scripts inherit admin rights.
+try {
+  $currentPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+  if (-not $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    $self = $PSCommandPath
+    if (-not $self) { $self = $MyInvocation.MyCommand.Path }
+    if ($self) {
+      $ps = $(if (($__gc = Get-Command powershell.exe -ErrorAction SilentlyContinue)) { $__gc.Source })
+      if (-not $ps) { $ps = $(if (($__gc = Get-Command powershell -ErrorAction SilentlyContinue)) { $__gc.Source }) }
+      if (-not $ps) { $ps = $(if (($__gc = Get-Command pwsh -ErrorAction SilentlyContinue)) { $__gc.Source }) }
+      if ($ps) {
+        Start-Process -FilePath $ps -ArgumentList @("-NoProfile","-ExecutionPolicy","Bypass","-File",$self) -Verb RunAs
+        exit
+      }
+    }
+  }
+} catch { }
+#endregion Admin Auto-Elevation
+
 #region STA Guard (WPF requires STA)
 try {
   $apt = [System.Threading.Thread]::CurrentThread.ApartmentState
@@ -777,12 +798,15 @@ Ensure-Dirs -Paths $State.Paths
 
         <!-- Log output (top pane) -->
         <Border Grid.Row="0" BorderBrush="#DCDCDC" BorderThickness="1" CornerRadius="8">
-          <TextBox x:Name="txtOutput"
-                   FontFamily="Consolas" FontSize="11.5"
-                   IsReadOnly="True" TextWrapping="Wrap"
-                   VerticalScrollBarVisibility="Auto"
-                   HorizontalScrollBarVisibility="Disabled"
-                   Padding="10,8" BorderThickness="0" Background="Transparent"/>
+          <RichTextBox x:Name="txtOutput"
+                       FontFamily="Consolas" FontSize="11.5"
+                       IsReadOnly="True"
+                       VerticalScrollBarVisibility="Auto"
+                       HorizontalScrollBarVisibility="Disabled"
+                       Padding="10,8" BorderThickness="0" Background="Transparent"
+                       IsDocumentEnabled="True">
+            <FlowDocument/>
+          </RichTextBox>
         </Border>
 
         <!-- Resizable splitter between log and terminal -->
@@ -815,12 +839,15 @@ Ensure-Dirs -Paths $State.Paths
                         Cursor="Hand" HorizontalAlignment="Right"/>
               </DockPanel>
             </Border>
-            <TextBox Grid.Row="1" x:Name="txtTerminal"
+            <RichTextBox Grid.Row="1" x:Name="txtTerminal"
                      FontFamily="Consolas" FontSize="11.5"
-                     IsReadOnly="True" TextWrapping="Wrap"
+                     IsReadOnly="True"
                      VerticalScrollBarVisibility="Auto"
                      HorizontalScrollBarVisibility="Disabled"
-                     Padding="10,8" BorderThickness="0" Background="Transparent"/>
+                     Padding="10,8" BorderThickness="0" Background="Transparent"
+                     IsDocumentEnabled="True">
+              <FlowDocument/>
+            </RichTextBox>
           </Grid>
         </Border>
       </Grid>
@@ -871,20 +898,54 @@ $btnThemeDark  = $Window.FindName("btnThemeDark")
 
 function Ui-Append {
   param([string]$Line)
-  $txtOutput.AppendText($Line + [Environment]::NewLine)
+  $color = $null
+  if     ($Line -match '\[ERROR\]'   -or $Line -match '\[ERR\]')     { $color = [System.Windows.Media.Brushes]::Red }
+  elseif ($Line -match '\[WARN\]'    -or $Line -match '\[WARNING\]') { $color = [System.Windows.Media.Brushes]::DarkOrange }
+  elseif ($Line -match '\[SUCCESS\]' -or $Line -match '\[OK\]')     { $color = [System.Windows.Media.Brushes]::Green }
+  elseif ($Line -match '\[DEBUG\]')  { $color = [System.Windows.Media.Brushes]::Gray }
+  elseif ($Line -match '\[SCAN\]'    -or $Line -match '\[RESULT\]') { $color = [System.Windows.Media.Brushes]::DodgerBlue }
+  elseif ($Line -match '\[BATCH\]')  { $color = [System.Windows.Media.Brushes]::MediumOrchid }
+
+  $para = $txtOutput.Document.Blocks | Select-Object -Last 1
+  if (-not $para -or $para -isnot [System.Windows.Documents.Paragraph]) {
+    $para = [System.Windows.Documents.Paragraph]::new()
+    $para.Margin = [System.Windows.Thickness]::new(0)
+    $txtOutput.Document.Blocks.Add($para)
+  }
+  $run = [System.Windows.Documents.Run]::new($Line + [Environment]::NewLine)
+  if ($color) { $run.Foreground = $color }
+  $para.Inlines.Add($run)
   $txtOutput.ScrollToEnd()
 }
 
+function Ui-ClearLog { $txtOutput.Document.Blocks.Clear() }
+
 function Ui-AppendTerminal {
   param([string]$Line)
-  if ($txtTerminal) {
-    $txtTerminal.AppendText($Line + [Environment]::NewLine)
-    $txtTerminal.ScrollToEnd()
+  if (-not $txtTerminal) { return }
+  $color = $null
+  if     ($Line -match '\[ERROR\]'   -or $Line -match '\[ERR\]'  -or $Line -match 'ERROR ')  { $color = [System.Windows.Media.Brushes]::Red }
+  elseif ($Line -match '\[WARN\]'    -or $Line -match '\[WARNING\]') { $color = [System.Windows.Media.Brushes]::DarkOrange }
+  elseif ($Line -match '\[SUCCESS\]' -or $Line -match '\[OK\]')     { $color = [System.Windows.Media.Brushes]::Green }
+  elseif ($Line -match '\[DEBUG\]')  { $color = [System.Windows.Media.Brushes]::Gray }
+  elseif ($Line -match '\[SCAN\]'    -or $Line -match '\[RESULT\]') { $color = [System.Windows.Media.Brushes]::DodgerBlue }
+  elseif ($Line -match '\[BATCH\]')  { $color = [System.Windows.Media.Brushes]::MediumOrchid }
+  elseif ($Line -match '\[INFO\]')   { $color = [System.Windows.Media.Brushes]::CornflowerBlue }
+
+  $para = $txtTerminal.Document.Blocks | Select-Object -Last 1
+  if (-not $para -or $para -isnot [System.Windows.Documents.Paragraph]) {
+    $para = [System.Windows.Documents.Paragraph]::new()
+    $para.Margin = [System.Windows.Thickness]::new(0)
+    $txtTerminal.Document.Blocks.Add($para)
   }
+  $run = [System.Windows.Documents.Run]::new($Line + [Environment]::NewLine)
+  if ($color) { $run.Foreground = $color }
+  $para.Inlines.Add($run)
+  $txtTerminal.ScrollToEnd()
 }
 
 function Ui-ClearTerminal {
-  if ($txtTerminal) { $txtTerminal.Clear() }
+  if ($txtTerminal) { $txtTerminal.Document.Blocks.Clear() }
 }
 
 function Ui-SetStatus {
@@ -903,10 +964,8 @@ function Ui-SetStatus {
 function Ui-Log { param([string]$msg,[string]$level="INFO") Ui-Append (Write-LogLine -Message $msg -Level $level) }
 
 function Set-UiBusy([bool]$Busy) {
-  $mnuSettings.IsEnabled   = -not $Busy
-  $mnuOpenLog.IsEnabled    = -not $Busy
+  # Settings / Open log / Exit / Tree stay ALWAYS enabled
   $mnuReload.IsEnabled     = -not $Busy
-  $mnuExit.IsEnabled       = -not $Busy
   $mnuRun.IsEnabled        = -not $Busy
   $mnuRunSerial.IsEnabled  = -not $Busy
   $mnuForce.IsEnabled      = -not $Busy
@@ -915,7 +974,6 @@ function Set-UiBusy([bool]$Busy) {
   $btnRunSerial.IsEnabled  = -not $Busy
   $tglForce.IsEnabled      = -not $Busy
   $tglVerbose.IsEnabled    = -not $Busy
-  $tvMenu.IsEnabled        = -not $Busy
   $txtFilter.IsEnabled     = -not $Busy
   if ($btnClearTerminal) { $btnClearTerminal.IsEnabled = -not $Busy }
 }
@@ -1337,8 +1395,6 @@ $Script:WorkerHelpers = {
 
     $psExe = Get-ChildPowerShell
 
-    # Use LogBaseName (clean script name from URL) for log filename, not the cache path.
-    # e.g. "UpdateWindows" -> "UpdateWindows_20260318_124942.log"
     $cleanBase    = if ($LogBaseName) { $LogBaseName } else { [System.IO.Path]::GetFileNameWithoutExtension($ScriptPath) }
     $childLogName = "{0}_{1}.log" -f $cleanBase, [datetime]::Now.ToString("yyyyMMdd_HHmmss")
     $childLogPath = [System.IO.Path]::Combine($State.Paths.Logs, $childLogName)
@@ -1351,35 +1407,37 @@ $Script:WorkerHelpers = {
     $pargs.Add($ScriptPath)
     if ($State.VerboseOutput) { $pargs.Add("-Verbose") }
 
+    # Redirect stdout/stderr to a temp text file instead of pipes.
+    # This avoids the "no Runspace" crash with event handlers and
+    # the blocking EndOfStream issue with synchronous ReadLine.
+    $stdioFile = [System.IO.Path]::Combine($State.Paths.Temp,
+                   $cleanBase + "_stdio_" + [datetime]::Now.ToString("yyyyMMdd_HHmmss") + ".txt")
+
     $psi = [System.Diagnostics.ProcessStartInfo]::new()
     $psi.FileName               = $psExe
     $psi.Arguments              = ($pargs | ForEach-Object { if ($_ -match '\s') { "`"$_`"" } else { $_ } }) -join " "
     $psi.UseShellExecute        = $false
     $psi.CreateNoWindow         = $false
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError  = $true
+    # NO stdout/stderr redirect — avoids all Runspace/blocking issues
+    $psi.RedirectStandardOutput = $false
+    $psi.RedirectStandardError  = $false
 
     # Pass env vars directly into the child process environment
-    # (UseShellExecute=$false means we control the env block explicitly)
     $psi.EnvironmentVariables["KARANIK_WM_LOGDIR"]   = $State.Paths.Logs
     $psi.EnvironmentVariables["KARANIK_WM_CACHEDIR"]  = $State.Paths.Cache
     $psi.EnvironmentVariables["KARANIK_WM_TEMPDIR"]   = $State.Paths.Temp
     $psi.EnvironmentVariables["KARANIK_WM_VERBOSE"]   = $(if ($State.VerboseOutput) { "1" } else { "0" })
     $psi.EnvironmentVariables["KARANIK_WM_LOGFILE"]   = $childLogPath
 
+    $ProgressQueue.Enqueue("Tailing log: $childLogPath")
+
     $proc = [System.Diagnostics.Process]::Start($psi)
     if (-not $proc) { throw "Failed to start process: $psExe" }
 
-    # Poll loop: read stdout/stderr synchronously + tail log file.
-    # No event handlers (they require a PS Runspace on the thread which ThreadPool lacks).
-    # stdout/stderr -> TERMINAL| prefix -> txtTerminal in UI
-    # log file tail -> txtOutput in UI
+    # Pure log-file-tailing loop. No stdout/stderr involvement.
     $tailPos  = 0L
-    $pollMs   = 200
+    $pollMs   = 300
     $started  = [datetime]::Now
-
-    $stdoutReader = $proc.StandardOutput
-    $stderrReader = $proc.StandardError
 
     while ($true) {
       $elapsed = ([datetime]::Now - $started).TotalMilliseconds
@@ -1388,29 +1446,7 @@ $Script:WorkerHelpers = {
         throw "Execution timeout after $ExecTimeoutSec sec: $ScriptPath"
       }
 
-      # Drain stdout (non-blocking peek)
-      try {
-        while (-not $stdoutReader.EndOfStream) {
-          $ln = $stdoutReader.ReadLine()
-          if ($null -ne $ln) {
-            $ProgressQueue.Enqueue("TERMINAL|" + $ln)
-            [Console]::WriteLine($ln)
-          }
-        }
-      } catch { }
-
-      # Drain stderr (non-blocking peek)
-      try {
-        while (-not $stderrReader.EndOfStream) {
-          $ln = $stderrReader.ReadLine()
-          if ($null -ne $ln) {
-            $ProgressQueue.Enqueue("TERMINAL|" + $ln)
-            [Console]::Error.WriteLine($ln)
-          }
-        }
-      } catch { }
-
-      # Tail child log file -> structured log lines to txtOutput
+      # Tail child log file -> ProgressQueue (shows in txtOutput via Ui-Append)
       if ([System.IO.File]::Exists($childLogPath)) {
         try {
           $fs      = [System.IO.File]::Open($childLogPath, [System.IO.FileMode]::Open,
@@ -1434,27 +1470,7 @@ $Script:WorkerHelpers = {
       [System.Threading.Thread]::Sleep($pollMs)
     }
 
-    # Final drain after process exits
-    try {
-      $remaining = $stdoutReader.ReadToEnd()
-      foreach ($ln in ($remaining -split "`r?`n")) {
-        if ($ln.Trim()) {
-          $ProgressQueue.Enqueue("TERMINAL|" + $ln)
-          [Console]::WriteLine($ln)
-        }
-      }
-    } catch { }
-    try {
-      $remaining = $stderrReader.ReadToEnd()
-      foreach ($ln in ($remaining -split "`r?`n")) {
-        if ($ln.Trim()) {
-          $ProgressQueue.Enqueue("TERMINAL|" + $ln)
-          [Console]::Error.WriteLine($ln)
-        }
-      }
-    } catch { }
-
-    # Final log tail drain
+    # Final log tail drain after exit
     if ([System.IO.File]::Exists($childLogPath)) {
       try {
         $fs      = [System.IO.File]::Open($childLogPath, [System.IO.FileMode]::Open,
@@ -2529,8 +2545,8 @@ $tglVerbose.Add_Unchecked({
 })
 
 # ── Clear log button ──────────────────────────────────────────────────────────
-$btnClearLog.Add_Click({ $txtOutput.Clear(); Ui-Log "Log cleared." "INFO" })
-$btnClearTerminal.Add_Click({ $txtTerminal.Clear() })
+$btnClearLog.Add_Click({ Ui-ClearLog; Ui-Log "Log cleared." "INFO" })
+$btnClearTerminal.Add_Click({ Ui-ClearTerminal })
 
 # ── Filter textbox  -  rebuild tree on each keystroke ──────────────────────────
 $txtFilter.Add_TextChanged({
