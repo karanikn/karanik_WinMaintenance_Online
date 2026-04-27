@@ -25,6 +25,10 @@
 |---|---|
 | ![Office Manager](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/OfficeManager.png) | ![PS Module Manager](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/ModuleManager.png) |
 
+| WinDiag-AI |
+|---|
+| ![WinDiag-AI](https://raw.githubusercontent.com/karanikn/WinDiag-AI/main/Screenshots/WinDiag-AI-Main.png) |
+
 ---
 
 ## ✨ Overview
@@ -41,13 +45,13 @@ Designed for **IT administrators, help desk engineers, and power users** who mai
 
 ### Option 1 — One-liner (no download needed)
 
-Open **PowerShell** and run:
+Open **PowerShell as Administrator** and run:
 
 ```powershell
 irm "https://karanik.gr/win" | iex
 ```
 
-This downloads and launches the application in a single command — the same way tools like Chris Titus Tech's WinUtil work. The launcher **automatically requests Administrator elevation** (UAC prompt) if not already running elevated.
+This downloads and launches the application in a single command — the same way tools like Chris Titus Tech's WinUtil work.
 
 ### Option 2 — Download and run the PS1
 
@@ -65,7 +69,7 @@ powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File "$env:TEMP\karanik_
 |---|---|
 | OS | Windows 10 / Windows 11 / Windows Server 2016+ |
 | PowerShell | 5.1 or later (PS7 also supported) |
-| Privileges | Administrator (auto-elevated via UAC if needed) |
+| Privileges | Must run as **Administrator** |
 | Internet | Required to download scripts on first run (cached after) |
 
 ---
@@ -75,8 +79,8 @@ powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File "$env:TEMP\karanik_
 The application features a clean two-panel layout:
 
 - **Left panel** — Collapsible script catalog organized by category
-- **Right panel (top)** — Live log output (RichTextBox) with color-coded lines: `[ERROR]` red, `[WARN]` orange, `[SUCCESS]`/`[OK]` green, `[DEBUG]` grey, `[SCAN]`/`[RESULT]` blue, `[BATCH]` purple
-- **Right panel (bottom)** — Terminal output (RichTextBox) with the same color coding; shows child script console output
+- **Right panel (top)** — Live log output with color-coded `[INFO]` / `[SUCCESS]` / `[WARN]` / `[ERROR]` entries
+- **Right panel (bottom)** — Terminal output (raw stdout/stderr from child scripts)
 - **Toolbar** — Run, Run Serial, Force re-download, Verbose, Stealth Mode
 - **Search bar** — Real-time filtering of the script catalog
 - **Theme selector** — Auto (follows system), Light, Dark
@@ -150,6 +154,9 @@ The application features a clean two-panel layout:
 | 5.5 | Restore Default Right-Click Menu | Restores the default Windows 11 context menu |
 | 5.6 | Disable Hibernation | Runs `powercfg /h off` and verifies hiberfil.sys removal |
 | 5.7 | Enable Hibernation | Runs `powercfg /h on` and verifies hiberfil.sys creation |
+| 5.8 | WebView2 Repair / Install | Checks, downloads and installs Microsoft Edge WebView2 Runtime |
+| 5.9 | WebView2 / Outlook Auth Repair (Advanced) | Full Outlook Modern Auth / WAM / AAD BrokerPlugin repair + diagnostics export |
+| 5.10 | Remove iCloud (All Users) | Removes iCloud/Apple components from all user profiles; kills related processes |
 
 ### ⭐ Extra Tools
 
@@ -159,38 +166,13 @@ The application features a clean two-panel layout:
 | 6.2 | Microsoft Activation Scripts (MAS) | Launches `irm https://get.activated.win \| iex` in a new elevated window |
 | 6.3 | WinScript | Launches `irm https://winscript.cc/irm \| iex` |
 | 6.4 | Chris Titus Tech's Windows Utility | Launches `irm https://christitus.com/win \| iex` |
+| 6.5 | WinDiag-AI | WPF GUI for Windows diagnostics with local AI analysis (Ollama); SMART, PDF export, driver check |
 
-### 🖥️ Office Tools
+### 🏢 Office Tools
 
 | ID | Script | Description |
 |---|---|---|
-| 7.1 | Office Manager | WPF GUI for Microsoft 365 / Office Click-to-Run management + SaRA Enterprise integration. Runs as a `Standalone` script (separate STA window, real-time log forwarding to the launcher). |
-
-**Office C2R — Update & Repair:**
-
-| # | Action | Details |
-|---|---|---|
-| 1 | Enable Automatic Updates | Sets registry policy `enableautomaticupdates = 1` |
-| 2 | Disable Automatic Updates | Sets registry policy `enableautomaticupdates = 0` |
-| 3 | Check Update Status & Version | Reads C2R registry config; displays Version, Channel, Auto-Update state inline |
-| 4 | Run Update Now | Launches `OfficeC2RClient.exe updateapp /runnow` |
-| 5a | Quick Repair | Local repair — no internet required |
-| 5b | Online Repair | Full re-download from Microsoft (~GB, 20–45 min) |
-| 6 | Open Mail (Outlook) | Opens Outlook Mail Profile Manager (`outlook.exe /manageprofiles` or `mlcfg32.cpl`) |
-
-**SaRA Enterprise (Microsoft Support and Recovery Assistant):**
-
-Downloaded from Microsoft on demand and cached in `karanik_WinMaintenance\Cache\SaRA_Enterprise.zip`. Builds expire after 90 days — auto-refreshed when > 80 days old. Each run logs to a dedicated `SaRA_<Scenario>_<timestamp>\` subfolder inside the Logs directory.
-
-| # | Scenario | SaRAcmd.exe command |
-|---|---|---|
-| 7 | Uninstall ALL versions of Office | `OfficeScrubScenario -OfficeVersion All` |
-| 8 | Uninstall specific version (picker) | `OfficeScrubScenario -OfficeVersion [M365\|2021\|2019\|2016...]` |
-| 9 | Outlook Scan | `ExpertExperienceAdminTask` |
-| 10 | Reset Office Activation | `ResetOfficeActivation -CloseOffice` |
-| 11 | Fix Office Activation | `OfficeActivationScenario -CloseOffice` |
-| 12 | Fix Teams Meeting Add-in | `TeamsAddinScenario -CloseOutlook` |
-| 13 | Outlook Calendar Scan (CalCheck) | `OutlookCalendarCheckTask` |
+| 7.1 | Office Tools | Click-to-Run update control, Quick/Online repair, SaRA Enterprise (13 scenarios) |
 
 ---
 
@@ -224,34 +206,26 @@ Useful for deployments where no trace of the tool should remain after use.
 | **UI** | WPF (Windows Presentation Foundation) via `[System.Windows.Markup.XamlReader]` |
 | **Threading** | `[PowerShell]::Create()` + dedicated Runspace for background execution; `ConcurrentQueue` for thread-safe UI updates |
 | **Script delivery** | `System.Net.WebClient.DownloadFile()` with validation (checks first 512 bytes for HTML/error responses) |
-| **Logging** | Real-time log-file tailing to color-coded RichTextBox panels; structured `[INFO]/[SUCCESS]/[WARN]/[ERROR]` levels; child scripts write to `KARANIK_WM_LOGFILE` env var path |
+| **Logging** | Dual-stream: structured `[INFO]/[SUCCESS]/[WARN]/[ERROR]` to log file + raw stdout/stderr to terminal panel |
 | **Execution types** | `Remote` (download+cache+run), `Standalone` (separate STA window for WPF scripts), `Inline` (irm\|iex in new elevated window) |
 
 ---
 
 ## 📝 Changelog
 
-### v1.7 — March 2026
+### v1.7 — April 2026
 
-- **Auto-elevation** — launcher automatically requests Administrator privileges (UAC) at startup; all child scripts inherit elevation without individual admin checks
-- **Real-time log tailing** — replaced blocking stdout/stderr pipe capture (`RedirectStandardOutput`) with pure log-file tailing; logs from all child scripts — including GUI apps like PSModuleManager — now stream to the launcher's Log panel in real-time while the script is running
-- **Color-coded log output** — both Log and Terminal panels upgraded from `TextBox` to `RichTextBox` with per-line coloring: `[ERROR]` red, `[WARN]` orange, `[SUCCESS]`/`[OK]` green, `[DEBUG]` grey, `[SCAN]`/`[RESULT]` blue, `[BATCH]` purple; adapts to both Light and Dark themes
-- **Non-blocking UI during execution** — Settings, Open Log, Exit menu items and the script tree view remain fully interactive while a script is running; only Run/Run Serial buttons are disabled to prevent double-execution
-- **PSModuleManager scan fix** — replaced `& $Exe -Command` stdout capture (which silently lost output inside MTA Runspaces) with temp `.ps1` script file + temp output file via `System.Diagnostics.Process`; scan now correctly detects all installed modules (was returning 0 in previous versions)
-- **PSModuleManager install/update fix** — batch install/update operations use the same temp-file approach; resolves `ERROR: Unknown` failures when updating modules (e.g. Microsoft.Graph)
-- **PSModuleManager `-ExecutionPolicy Bypass`** — added to all 24+ child process invocations across the entire PSModuleManager codebase
-- **PSModuleManager launcher integration** — PSModuleManager now respects `KARANIK_WM_LOGFILE` environment variable, writing its log to the launcher-specified path for seamless log tailing
+- **4 new scripts added to catalog:**
+  - `5.8` **WebView2 Repair / Install** — checks, downloads and installs Microsoft Edge WebView2 Runtime; kills stale msedgewebview2.exe processes before install
+  - `5.9` **WebView2 / Outlook Auth Repair (Advanced)** — comprehensive repair tool for Outlook Modern Auth / WAM / AAD BrokerPlugin issues; cleans caches, exports diagnostics, tests Microsoft 365 endpoints
+  - `5.10` **Remove iCloud (All Users)** — removes iCloud/Apple components (processes, AppData folders, ProgramData) from all user profiles
+  - `6.5` **WinDiag-AI** — WPF GUI for Windows diagnostics with local AI analysis via Ollama; includes SMART details, PDF export, driver check, dark/light theme (`Type=Standalone`)
+- **Tooltips added to all 39 catalog entries** — each tooltip describes exact steps, affected locations, and use cases; written from script source analysis
 
 ### v1.6 — March 2026
 
-- **Office Tools** — New `Standalone` script group (`7.x`) with two-column WPF GUI for Microsoft 365 / Office Click-to-Run management and SaRA Enterprise integration (13 actions across Update Control, Repair, Control Panel, and SaRA scenarios)
-- **SaRA Enterprise integration** — `Manage-OfficeUpdates.ps1` downloads and caches `SaRACmd_17_01_2877_000.zip` from GitHub; auto-refreshes when cache is > 80 days old (SaRA builds expire at 90 days); each scenario runs in a separate elevated CMD window with dedicated log subfolder
-- **Standalone log forwarding** — Standalone scripts now forward their structured log lines to the launcher's main log panel in real-time via log-file tail-polling (same mechanism as Remote scripts); launcher stays responsive while the Standalone window is open
-- **Inline status panel** — Office Manager displays Version / Channel / Auto-Update state directly in the window after status checks (no MessageBox); dark console strip with Hide button
-- **Tooltip support** — Catalog entries now have an optional `Tooltip` field; Office Tools entry shows a full feature summary on hover (420px Consolas tooltip)
-- **XML comment fix** — Resolved silent XAML parse failure caused by `--` inside XML comments in here-strings; all `<!-- -- text -- -->` patterns replaced with `<!-- text -->`
-- **Encoding hardening** — All scripts saved as UTF-8 without BOM with `
-` line endings; em-dashes and box-drawing characters replaced with ASCII equivalents to prevent PS encoding misinterpretation
+- **Office Tools group added** (`7.1` Office Tools) — Click-to-Run update control (enable/disable/check/force), Quick and Online repair, Mail Control Panel, SaRA Enterprise with 13 scenarios (uninstall, Outlook scan, activation reset, Teams add-in fix, CalCheck)
+- **PSModuleManager** — fixed 0-module scan issue inside launcher runspace; replaced inline `-Command` execution with temp `.ps1` + `.txt` output files via `System.Diagnostics.Process` to bypass stdout pipe truncation
 
 ### v1.5 — March 2026
 
