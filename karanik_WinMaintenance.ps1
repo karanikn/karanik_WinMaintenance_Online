@@ -356,7 +356,7 @@ $Catalog = @(
   [pscustomobject]@{ Id="1.9";  Title="Upgrade all apps via Winget (excluding pinned)"; Type="Remote"; ScriptName="UpgradeWingetApps.ps1";     Sha256=$null; Group="Main" },
 
   # ── 2. PowerShell Tools ────────────────────────────────────────────────────
-  [pscustomobject]@{ Id="2.1"; Title="PS Module Manager"; Type="Remote"; ScriptName="https://karanik.gr/scripts/powershell/PSModuleManager/PSModuleManager.ps1"; Sha256=$null; Group="PowerShell Tools" },
+  [pscustomobject]@{ Id="2.1"; Title="PS Module Manager"; 							Type="Remote"; ScriptName="https://karanik.gr/scripts/powershell/PSModuleManager/PSModuleManager.ps1"; Sha256=$null; Group="PowerShell Tools" },
 
   # ── 3. Cleaning Tools ──────────────────────────────────────────────────────
   [pscustomobject]@{ Id="3.1"; Title="Clean all Temporary files (system & users)"; Type="Remote"; ScriptName="CleanTempFiles.ps1";                  Sha256=$null; Group="Cleaning Tools" },
@@ -378,17 +378,21 @@ $Catalog = @(
   [pscustomobject]@{ Id="5.1"; Title="Reset Print Spooler";                          Type="Remote"; ScriptName="ResetPrintSpooler.ps1";         Sha256=$null; Group="Fix Tools" },
   [pscustomobject]@{ Id="5.2"; Title="Network Reset";                                Type="Remote"; ScriptName="NetworkReset.ps1";               Sha256=$null; Group="Fix Tools" },
   [pscustomobject]@{ Id="5.3"; Title="Wi-Fi Reset";                                  Type="Remote"; ScriptName="WiFiReset.ps1";                  Sha256=$null; Group="Fix Tools" },
-  [pscustomobject]@{ Id="5.4"; Title="Set Classic Right-Click Menu (Win11)";          Type="Remote"; ScriptName="SetClassicContextMenu.ps1";     Sha256=$null; Group="Fix Tools" },
-  [pscustomobject]@{ Id="5.5"; Title="Restore Default Right-Click Menu (Win11)";      Type="Remote"; ScriptName="RestoreDefaultContextMenu.ps1"; Sha256=$null; Group="Fix Tools" },
-  [pscustomobject]@{ Id="5.6"; Title="Disable Hibernation";                            Type="Remote"; ScriptName="DisableHibernation.ps1";             Sha256=$null; Group="Fix Tools" },
-  [pscustomobject]@{ Id="5.7"; Title="Enable Hibernation";                             Type="Remote"; ScriptName="EnableHibernation.ps1";              Sha256=$null; Group="Fix Tools" },
+  [pscustomobject]@{ Id="5.4"; Title="Set Classic Right-Click Menu (Win11)";         Type="Remote"; ScriptName="SetClassicContextMenu.ps1";     Sha256=$null; Group="Fix Tools" },
+  [pscustomobject]@{ Id="5.5"; Title="Restore Default Right-Click Menu (Win11)";     Type="Remote"; ScriptName="RestoreDefaultContextMenu.ps1"; Sha256=$null; Group="Fix Tools" },
+  [pscustomobject]@{ Id="5.6"; Title="Disable Hibernation";                          Type="Remote"; ScriptName="DisableHibernation.ps1";             Sha256=$null; Group="Fix Tools" },
+  [pscustomobject]@{ Id="5.7"; Title="Enable Hibernation";                           Type="Remote"; ScriptName="EnableHibernation.ps1";              Sha256=$null; Group="Fix Tools" },
+  [pscustomobject]@{ Id="5.8"; Title="WebView2_Repair_Install Phase1"; 				 Type="Remote";  ScriptName="WebView2_Repair_Install.ps1";    Sha256=$null; Group="Fix Tools" },  
+  [pscustomobject]@{ Id="5.9"; Title="WebView2_Repair_Install Phase2"; 				 Type="Remote";  ScriptName="WebView2_Repair_Install_v3.ps1";    Sha256=$null; Group="Fix Tools" },    
+  [pscustomobject]@{ Id="5.10"; Title="Remove_iCloud_AllUsers"; 					 Type="Remote";  ScriptName="Remove_iCloud_AllUsers.ps1";    Sha256=$null; Group="Fix Tools" },    
 
   # ── 6. Extra Tools ─────────────────────────────────────────────────────────
   [pscustomobject]@{ Id="6.1"; Title="Reset RDS Licensing Grace Period (Windows Server)"; Type="Remote";  ScriptName="RDS-GracePeriod-Manager.ps1";    Sha256=$null; Group="Extra Tools" },
   [pscustomobject]@{ Id="6.2"; Title="Microsoft Activation Scripts (MAS)";                Type="Inline";  Command="irm https://get.activated.win | iex"; Sha256=$null; Group="Extra Tools" },
   [pscustomobject]@{ Id="6.3"; Title="WinScript";                                         Type="Inline";  Command='irm "https://winscript.cc/irm" | iex'; Sha256=$null; Group="Extra Tools" },
   [pscustomobject]@{ Id="6.4"; Title="Chris Titus Tech's Windows Utility";                Type="Inline";  Command='irm "https://christitus.com/win" | iex'; Sha256=$null; Group="Extra Tools"; Tooltip=$null },
-
+  [pscustomobject]@{ Id="6.5"; Title="WinDiag-AI"; 										  Type="Remote";  ScriptName="https://karanik.gr/scripts/powershell/WinDiag-AI/WinDiag-AI.ps1";    Sha256=$null; Group="Extra Tools" },
+  
   # -- 7. Office Tools --
   [pscustomobject]@{ Id="7.1"; Title="Office Tools"; Type="Standalone"; ScriptName="Manage-OfficeUpdates.ps1"; Sha256=$null; Group="Office Tools";
     Tooltip="Microsoft 365 / Office Click-to-Run Manager + SaRA Enterprise`n`nUPDATE CONTROL`n  1. Enable automatic updates   (registry policy = 1)`n  2. Disable automatic updates  (registry policy = 0)`n  3. Check update status and version`n  4. Run update now (OfficeC2RClient /runnow)`n`nREPAIR`n  5a. Quick Repair  - local, no internet required`n  5b. Online Repair - full re-download from Microsoft`n`nCONTROL PANEL`n  6.  Open Mail (Microsoft Outlook) - mlcfg32.cpl`n`nSaRA ENTERPRISE (Microsoft Support and Recovery Assistant)`n  7.  Uninstall ALL versions of Office`n  8.  Uninstall specific version (M365 / 2021 / 2019 / 2016 ...)`n  9.  Outlook Scan - diagnostics and config report`n  10. Reset Office Activation - clears licenses and cached accounts`n  11. Fix Office Activation issues - automated recovery`n  12. Fix Teams Meeting Add-in for Outlook`n  13. Outlook Calendar Scan (CalCheck)" }
