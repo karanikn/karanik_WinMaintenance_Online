@@ -1,6 +1,6 @@
 # karanik_WinMaintenance
 
-[![GitHub release](https://img.shields.io/badge/version-1.7-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
+[![GitHub release](https://img.shields.io/badge/version-1.9-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-blue?style=flat-square&logo=powershell)](https://github.com/PowerShell/PowerShell)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Server-lightgrey?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
@@ -167,6 +167,8 @@ The application features a clean two-panel layout:
 | 6.3 | WinScript | Launches `irm https://winscript.cc/irm \| iex` |
 | 6.4 | Chris Titus Tech's Windows Utility | Launches `irm https://christitus.com/win \| iex` |
 | 6.5 | WinDiag-AI | WPF GUI for Windows diagnostics with local AI analysis (Ollama); SMART, PDF export, driver check |
+| 6.6 | AD Manager | WPF GUI for common Active Directory administration tasks (requires RSAT + domain connectivity) |
+| 6.7 | Network Scanner | WinForms GUI network scanner: subnet scan, MAC/vendor identification, rogue DHCP server detection |
 
 ### 🏢 Office Tools
 
@@ -212,6 +214,16 @@ Useful for deployments where no trace of the tool should remain after use.
 ---
 
 ## 📝 Changelog
+
+### v1.9 — June 2026
+
+- **1 new tool added to Extra Tools:**
+  - `6.7` **Network Scanner** — WinForms GUI network scanner; scans subnets for live hosts, identifies MAC addresses and NIC vendors, detects unauthorized (rogue) DHCP servers (`Type=Standalone`)
+
+### v1.8 — May 2026
+
+- **1 new script added to Extra Tools:**
+  - `6.6` **AD Manager** — WPF GUI for common Active Directory administration tasks; requires RSAT (Active Directory module) and domain connectivity (`Type=Standalone`)
 
 ### v1.7 — April 2026
 
