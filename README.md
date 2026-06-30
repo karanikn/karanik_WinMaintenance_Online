@@ -1,6 +1,6 @@
 # karanik_WinMaintenance
 
-[![GitHub release](https://img.shields.io/badge/version-1.9-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
+[![GitHub release](https://img.shields.io/badge/version-2.0-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-blue?style=flat-square&logo=powershell)](https://github.com/PowerShell/PowerShell)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Server-lightgrey?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
@@ -23,7 +23,7 @@
 
 | Office Manager | PS Module Manager |
 |---|---|
-| ![Office Manager](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/OfficeManager.png) | ![PS Module Manager](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/ModuleManager.png) |
+| ![Office Manager](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/Office_Manager.png) | ![PS Module Manager](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/ModuleManager.png) |
 
 | WinDiag-AI |
 |---|
@@ -174,7 +174,7 @@ The application features a clean two-panel layout:
 
 | ID | Script | Description |
 |---|---|---|
-| 7.1 | Office Tools | Click-to-Run update control, Quick/Online repair, SaRA Enterprise (13 scenarios) |
+| 7.1 | Office Tools | Click-to-Run update control, Quick/Online repair, SaRA Enterprise (13 scenarios), Microsoft Connectivity Check (DNS/TCP/HTTPS/Traceroute/Proxy/Firewall), Outlook/Office Diagnostics collector (HTML report, Repair Mode, Full Health Checks with SFC/DISM) |
 
 ---
 
@@ -215,6 +215,18 @@ Useful for deployments where no trace of the tool should remain after use.
 
 ## 📝 Changelog
 
+### v2.0 — June 2026
+
+- **`7.1` Office Tools — major upgrade** (renamed from `Manage-OfficeUpdates.ps1` → `OfficeTool.ps1`):
+  - **Single self-contained file** — Outlook/Office Diagnostics collector fully embedded (no companion script)
+  - **Microsoft Connectivity Check** (`14`) — checkbox dialog to pick: DNS resolution, TCP/443, HTTPS, Traceroute (3 key hosts), Proxy config (netsh winhttp + Internet Options), Outbound Windows Firewall rules for Office/Microsoft. Runs in background, GUI stays responsive. Saves `ConnectivityCheck_timestamp.txt` report.
+  - **Outlook/Office Diagnostics** (`15a/15b/15c`) — embedded HTML health report (crashes, add-ins, profiles, OST/PST, resiliency keys, WER); Repair Mode (safe Normal.dotm/dictionary reset with backup); Full Health Checks (+ SFC/DISM). All run in background.
+  - **Detailed tooltips** on all 15 buttons (hover to see exact commands, registry paths, what is and is not changed)
+  - **Clickable log path** in status bar — click the path to open the log file directly in Notepad
+  - **Resizable log panel** — drag the bar above LOG OUTPUT to resize; color-coded output (green=OK, red=error, yellow=warn, blue=section headers)
+  - **Resizable window** (`ResizeMode=CanResize`, default 860×1180px)
+  - **Background task engine** (`Invoke-PSAsync`) — connectivity checks and diagnostics never freeze the GUI
+
 ### v1.9 — June 2026
 
 - **1 new tool added to Extra Tools:**
@@ -236,7 +248,7 @@ Useful for deployments where no trace of the tool should remain after use.
 
 ### v1.6 — March 2026
 
-- **Office Tools group added** (`7.1` Office Tools) — Click-to-Run update control (enable/disable/check/force), Quick and Online repair, Mail Control Panel, SaRA Enterprise with 13 scenarios (uninstall, Outlook scan, activation reset, Teams add-in fix, CalCheck)
+- **Office Tools group added** (`7.1` Office Tools / `Manage-OfficeUpdates.ps1`) — Click-to-Run update control (enable/disable/check/force), Quick and Online repair, Mail Control Panel, SaRA Enterprise with 13 scenarios (uninstall, Outlook scan, activation reset, Teams add-in fix, CalCheck)
 - **PSModuleManager** — fixed 0-module scan issue inside launcher runspace; replaced inline `-Command` execution with temp `.ps1` + `.txt` output files via `System.Diagnostics.Process` to bypass stdout pipe truncation
 
 ### v1.5 — March 2026
