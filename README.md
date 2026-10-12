@@ -1,6 +1,6 @@
 # karanik_WinMaintenance
 
-[![GitHub release](https://img.shields.io/badge/version-2.0-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
+[![GitHub release](https://img.shields.io/badge/version-2.1-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-blue?style=flat-square&logo=powershell)](https://github.com/PowerShell/PowerShell)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Server-lightgrey?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
@@ -134,7 +134,7 @@ The application features a clean two-panel layout:
 
 | ID | Script | Description |
 |---|---|---|
-| 4.1 | System Information | Full system report: OS, hardware, network, services, processes, event errors, remote tools. Saved as .txt and opened in Notepad |
+| 4.1 | System Information | Full system report: OS, hardware, network, services, processes, event errors, remote access IDs (RustDesk / AnyDesk / TeamViewer / HopToDesk). Saved as .txt and opened in Notepad |
 | 4.2 | Export Installed Software | Registry-based software list exported to CSV on Desktop |
 | 4.3 | Export Drivers | All installed drivers exported to CSV (Get-WindowsDriver + driverquery fallback) |
 | 4.4 | Wi-Fi Profiles: Export | Exports all Wi-Fi profiles with clear-text keys to `Desktop\WiFi_Profiles\` |
@@ -169,6 +169,8 @@ The application features a clean two-panel layout:
 | 6.5 | WinDiag-AI | WPF GUI for Windows diagnostics with local AI analysis (Ollama); SMART, PDF export, driver check |
 | 6.6 | AD Manager | WPF GUI for common Active Directory administration tasks (requires RSAT + domain connectivity) |
 | 6.7 | Network Scanner | WinForms GUI network scanner: subnet scan, MAC/vendor identification, rogue DHCP server detection |
+| 6.8 | AD Domain Toolkit | Interactive console menu for AD diagnostics and confirmed repairs: replication health, DNS/DC discovery, secure channel, time sync, SYSVOL/NETLOGON checks, HTML+JSON report export (requires RSAT) |
+| 6.9 | M365 User Reset | Resets Microsoft 365 authentication for a user: clears WAM accounts, Identity/Licensing registry, OneAuth/IdentityCache caches, Office credentials; optional Outlook profile reset + Autodiscover fix. Creates timestamped backup with .reg backups and full log. Requires Windows PowerShell 5.1 |
 
 ### 🏢 Office Tools
 
@@ -214,6 +216,18 @@ Useful for deployments where no trace of the tool should remain after use.
 ---
 
 ## 📝 Changelog
+
+### v2.1 — October 2026
+
+- **`4.1` System Information — expanded Remote Access IDs section:**
+  - Replaced legacy TeamViewer/AnyDesk registry-only detection with full multi-tool detection engine
+  - Detects local client IDs for **RustDesk**, **AnyDesk**, **TeamViewer**, and **HopToDesk**
+  - Per-tool: reads `.toml`/`.conf` config files, queries service registry paths, spawns `--get-id` CLI (2.5 s timeout), and checks APPDATA/systemprofile locations
+  - Reports: ID / Status / Source / Note per tool; explicit "not installed" when absent
+  - Footer note: "Local IDs only. This is not an online-status or connectivity test."
+- **2 new tools added to Extra Tools:**
+  - `6.8` **AD Domain Toolkit** — interactive console menu for AD diagnostics and confirmed repairs; replication health (repadmin), DNS/DC discovery, secure channel, time sync, SYSVOL/NETLOGON, HTML+JSON export, self-test mode (`-selftest`); requires RSAT (`Type=Standalone`)
+  - `6.9` **M365 User Reset** — resets Microsoft 365 authentication for a named user account; clears WAM accounts via WinRT API, Office Identity/Licensing registry keys, OneAuth/IdentityCache caches, and Office/ADAL/OneDrive credentials from Windows Credential Manager; optional Outlook profile reset + Autodiscover fix; Diagnostics mode (read-only); creates timestamped backup folder with `.reg` exports and full log; **requires Windows PowerShell 5.1** (not compatible with PS7) (`Type=Standalone`)
 
 ### v2.0 — June 2026
 
