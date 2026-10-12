@@ -354,7 +354,7 @@ $Catalog = @(
     Tooltip="Runs gpupdate.exe /force to refresh all Group Policy settings immediately.`nApplies both Computer and User policies.`nOutput is logged line by line. May take up to 2 minutes on domain-joined machines." },
   [pscustomobject]@{ Id="1.5";  Title="Create System Restore Point";                    Type="Remote"; ScriptName="CreateRestorePoint.ps1";      Sha256=$null; Group="Main";
     Tooltip="Creates a Windows System Restore Point named 'karanik_WinMaintenance - <timestamp>'.`n`n- Checks if System Protection is enabled on C: and attempts to enable it if not`n- Uses Checkpoint-Computer with MODIFY_SETTINGS type`n- Reports: sequence number, description, creation time`n`nTip: Run before making system changes such as driver updates or major installs." },
-  [pscustomobject]@{ Id="1.51"; Title="Clean All Restore Points";                       Type="Remote"; ScriptName="CleanRestorePoints.ps1";      Sha256=$null; Group="Main";
+  [pscustomobject]@{ Id="1.5.1"; Title="Clean All Restore Points";                       Type="Remote"; ScriptName="CleanRestorePoints.ps1";      Sha256=$null; Group="Main";
     Tooltip="Permanently deletes ALL System Restore Points on this machine.`n`nSteps:`n  1. Lists all existing restore points with sequence numbers and timestamps`n  2. Shows estimated shadow storage space in use`n  3. Prompts for confirmation (20-second countdown, default: Y)`n  4. Deletes via vssadmin delete shadows /all /quiet`n  5. Falls back to WMI (Win32_ShadowCopy) if vssadmin fails`n  6. Verifies and reports freed shadow storage`n`nWARNING: This action is irreversible. System rollback will not be possible after." },
   [pscustomobject]@{ Id="1.6";  Title="Clear Event Logs";                               Type="Remote"; ScriptName="ClearEventLogs.ps1";          Sha256=$null; Group="Main";
     Tooltip="Clears Windows Event Logs using wevtutil.exe (compatible with PS 5.1).`n`nLogs cleared:`n  - Application, System, Security, Setup`n  - Microsoft-Windows-WindowsUpdateClient/Operational`n  - Microsoft-Windows-Bits-Client/Operational`n  - Microsoft-Windows-Diagnostics-Performance/Operational`n`n- Skips logs that are already empty or inaccessible`n- Reports count of cleared vs skipped logs" },
@@ -437,7 +437,9 @@ $Catalog = @(
   [pscustomobject]@{ Id="6.8"; Title="AD Domain Toolkit";                                 Type="Standalone"; ScriptName="https://karanik.gr/scripts/powershell/AD-Domain-Toolkit/AD-Domain-Toolkit.ps1"; Sha256=$null; Group="Extra Tools";
     Tooltip="AD Domain Toolkit 1.1.3 (interactive console menu)`nby Nikolaos Karanikolas`n`nDiagnostics and confirmed repairs for Active Directory environments.`n`nFeatures:`n  - Replication health (repadmin)`n  - DNS and DC discovery checks`n  - Secure channel / trust repair (member machines only)`n  - Time sync diagnostics`n  - SYSVOL / NETLOGON checks`n  - HTML + JSON report export`n  - Self-test mode (-selftest) with no AD changes`n`nAll repairs require explicit YES/NAI confirmation.`nOpens as a separate window. Requires elevated 64-bit PowerShell.`nRSAT AD Tools needed for repadmin/dcdiag." },
   [pscustomobject]@{ Id="6.9"; Title="M365 User Reset"; Type="Standalone"; ScriptName="https://karanik.gr/scripts/powershell/M365-Reset-Toolkit/Reset-M365-User.ps1"; Sha256=$null; Group="Extra Tools";
-    Tooltip="M365 User Reset v2.0 - Resets M365 authentication for a user account." },	
+    Tooltip="M365 User Reset v2.0 (interactive console menu)`nby Nikolaos Karanikolas`n`nResets Microsoft 365 sign-in for one user account.`nFixes sign-in loops, license errors, stale credentials.`n`nModes:`n  Authentication: WAM accounts, Identity/Licensing`n    registry, OneAuth/IdentityCache, Office creds`n  Full: Authentication + optional Outlook profile`n    reset + Autodiscover fix`n  Diagnostics: read-only (dsregcmd, registry,`n    tenant discovery)`n  Menu: choose the mode at runtime`n`nNot touched: PST/OST files, OneDrive sync, device join.`nBackup: timestamped folder with .reg exports + log.`n`nRequires Windows PowerShell 5.1 (not PS7).`nRun as the affected user (not SYSTEM)." },	
+  [pscustomobject]@{ Id="6.10"; Title="Repair-PrintSystem (Printing repair & reset)"; Type="Standalone"; ScriptName="https://karanik.gr/scripts/powershell/Repair-PrintSystem/Repair-PrintSystem.ps1"; Sha256=$null; Group="Extra Tools";
+    Tooltip="Repair-PrintSystem v1.0.0 (interactive console menu)`nby Nikolaos Karanikolas`n`nDiagnose, repair, reset and restore Windows printing.`n`nFeatures:`n  - Audit + HTML report, spooler crash analysis`n  - Network print errors 0x11b / 0x709 / 0xbcb`n  - Spooler service repair, stuck jobs, spool reset`n  - Remove printers / drivers / ports one by one`n  - Full reset (PDF / XPS / Fax are kept)`n  - Backup before every change + restore`n`nOpens as a separate window. Requires Administrator." },
   # -- 7. Office Tools --
   [pscustomobject]@{ Id="7.1"; Title="Office Tools"; Type="Standalone"; ScriptName="OfficeTool.ps1"; Sha256=$null; Group="Office Tools";
     Tooltip="Microsoft 365 / Office Click-to-Run Manager + SaRA Enterprise + Connectivity Check + Diagnostics`n`nUPDATE CONTROL`n  1. Enable automatic updates   (registry policy = 1)`n  2. Disable automatic updates  (registry policy = 0)`n  3. Check update status and version`n  4. Run update now (OfficeC2RClient /update user)`n`nREPAIR`n  5a. Quick Repair  - local cached files, no internet required`n  5b. Online Repair - full re-download from Microsoft CDN (~2-4 GB)`n`nCONTROL PANEL`n  6.  Open Mail (Microsoft Outlook) - mlcfg32.cpl / Outlook profiles`n`nSaRA ENTERPRISE (Microsoft Support and Recovery Assistant)`n  7.  Uninstall ALL versions of Office`n  8.  Uninstall specific version (M365 / 2021 / 2019 / 2016 ...)`n  9.  Outlook Scan - diagnostics and config report`n  10. Reset Office Activation - clears licenses and cached accounts`n  11. Fix Office Activation issues - automated recovery`n  12. Fix Teams Meeting Add-in for Outlook`n  13. Outlook Calendar Scan (CalCheck)`n`nCONNECTIVITY CHECK`n  14. Check Microsoft connectivity - pick from: DNS / TCP / HTTPS / Traceroute / Proxy / Firewall`n      Endpoints: officecdn.microsoft.com, windowsupdate.com, update.microsoft.com, download.microsoft.com + more`n      Runs in background - GUI stays responsive`n`nOUTLOOK / OFFICE DIAGNOSTICS (fully embedded, no companion script needed)`n  15a. Run Diagnostics (HTML report) - crashes, add-ins, profiles, OST/PST, resiliency keys`n  15b. Diagnostics + Repair Mode - safe Normal.dotm/dictionary reset with backup`n  15c. Diagnostics + Full Health Checks - adds SFC /scannow + DISM CheckHealth/ScanHealth" }
@@ -1038,7 +1040,7 @@ function Build-Tree {
 
   $order = @("Main","PowerShell Tools","Cleaning Tools","Export Tools","Fix Tools","Extra Tools","Office Tools")
   foreach ($grpName in $order) {
-    $items = @($Catalog | Where-Object Group -eq $grpName | Sort-Object { [double]($_.Id -replace '[^0-9.]','') })
+    $items = @($Catalog | Where-Object Group -eq $grpName | Sort-Object { [version]($_.Id -replace '[^0-9.]','') })
 
     # Apply filter (force-expand all when filtering)
     $forceExpand = $false
@@ -2261,7 +2263,7 @@ function Show-FixToolsPicker {
 
   $lst = New-DlgListBox -SelectionMode "Extended"
 
-  foreach ($i in ($FixCore | Sort-Object { [double]($_.Id -replace '[^0-9.]','') })) {
+  foreach ($i in ($FixCore | Sort-Object { [version]($_.Id -replace '[^0-9.]','') })) {
     $li = New-Object System.Windows.Controls.ListBoxItem
     $li.Content = (Strip-MenuPrefix $i.Title)
     $li.Padding = "8,5"
@@ -2281,7 +2283,7 @@ function Show-FixToolsPicker {
   $sepLbl.Margin = "0,4,0,0"
   $lst.Items.Add($sepLbl) | Out-Null
 
-  foreach ($i in ($FixTeams | Sort-Object { [double]($_.Id -replace '[^0-9.]','') })) {
+  foreach ($i in ($FixTeams | Sort-Object { [version]($_.Id -replace '[^0-9.]','') })) {
     $li = New-Object System.Windows.Controls.ListBoxItem
     $li.Content = (Strip-MenuPrefix $i.Title)
     $li.Padding = "20,5,8,5"

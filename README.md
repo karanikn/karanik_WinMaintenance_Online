@@ -1,6 +1,6 @@
 # karanik_WinMaintenance
 
-[![GitHub release](https://img.shields.io/badge/version-2.1-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
+[![GitHub release](https://img.shields.io/badge/version-2.2-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-blue?style=flat-square&logo=powershell)](https://github.com/PowerShell/PowerShell)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Server-lightgrey?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
@@ -109,7 +109,7 @@ The application features a clean two-panel layout:
 | 1.3 | Defender: Update signatures & Quick Scan | Updates Windows Defender definitions and runs a Quick Scan |
 | 1.4 | GPUpdate /force | Forces Group Policy refresh for Computer and User |
 | 1.5 | Create System Restore Point | Creates a named system restore point |
-| 1.51 | Clean All Restore Points | Removes all existing restore points (with confirmation countdown) |
+| 1.5.1 | Clean All Restore Points | Removes all existing restore points (with confirmation countdown) |
 | 1.6 | Clear Event Logs | Clears all Windows Event Logs via wevtutil.exe |
 | 1.7 | Install Winget | Installs or verifies the Windows Package Manager (App Installer) |
 | 1.8 | Install latest PowerShell | WPF GUI showing PS5/PS7 versions vs latest; installs via winget or MSI |
@@ -147,7 +147,7 @@ The application features a clean two-panel layout:
 
 | ID | Script | Description |
 |---|---|---|
-| 5.1 | Reset Print Spooler | Stops Spooler, clears spool files, restarts service |
+| 5.1 | Reset Print Spooler | Stops Spooler, clears spool files, restarts service (quick fix; for full diagnostics and repair use `6.10` Repair-PrintSystem) |
 | 5.2 | Network Reset | Resets Winsock, TCP/IP stack, releases/renews IP, flushes DNS |
 | 5.3 | Wi-Fi Reset | Full network reset + removes stale dni_dne registry key |
 | 5.4 | Set Classic Right-Click Menu | Enables the classic Windows 10-style context menu in Windows 11 |
@@ -171,6 +171,7 @@ The application features a clean two-panel layout:
 | 6.7 | Network Scanner | WinForms GUI network scanner: subnet scan, MAC/vendor identification, rogue DHCP server detection |
 | 6.8 | AD Domain Toolkit | Interactive console menu for AD diagnostics and confirmed repairs: replication health, DNS/DC discovery, secure channel, time sync, SYSVOL/NETLOGON checks, HTML+JSON report export (requires RSAT) |
 | 6.9 | M365 User Reset | Resets Microsoft 365 authentication for a user: clears WAM accounts, Identity/Licensing registry, OneAuth/IdentityCache caches, Office credentials; optional Outlook profile reset + Autodiscover fix. Creates timestamped backup with .reg backups and full log. Requires Windows PowerShell 5.1 |
+| 6.10 | Repair-PrintSystem | Interactive console menu that diagnoses, repairs, resets and restores the Windows printing subsystem: full audit with HTML report, spooler crash analysis (faulting DLL mapped to driver/monitor), network printing checks and reversible workarounds for 0x11b / 0x709 / 0xbcb, spooler service repair, stuck jobs and spool reset, one-by-one removal of printers / drivers / ports / orphan monitors, full reset that keeps PDF / XPS / Fax, automatic backup before every change and full restore |
 
 ### 🏢 Office Tools
 
@@ -216,6 +217,14 @@ Useful for deployments where no trace of the tool should remain after use.
 ---
 
 ## 📝 Changelog
+
+### v2.2 — October 2026
+
+- **1 new tool added to Extra Tools:**
+  - `6.10` **Repair-PrintSystem** — interactive console menu that merges `Repair-Printing.ps1` and `Reset-PrintingSystem.ps1` into one escalation ladder (diagnostics → targeted repair → full reset → restore); full audit + HTML report, spooler crash analysis, network printing checks and reversible workarounds for `0x0000011b` / `0x00000709` / `0x00000bcb`, automatic backup before every change and full restore; built-in PDF / XPS / Fax and Remote Desktop printers are protected; language independent (works on Greek Windows) (`Type=Standalone`)
+- **`6.9` M365 User Reset** — expanded tooltip (modes, what is and is not changed, backup, requirements)
+- **Catalog sorting fix** — IDs are now sorted as versions (`[version]`) instead of decimals (`[double]`); previously `5.10` sorted as `5.1` and appeared out of order. `1.51` Clean All Restore Points renamed to `1.5.1` to keep its position between `1.5` and `1.6`
+- **Tooltips are ASCII only** — non-ASCII characters such as the em dash inside catalog strings break the launcher when Windows PowerShell 5.1 reads the file without a BOM
 
 ### v2.1 — October 2026
 
