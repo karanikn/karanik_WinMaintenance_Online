@@ -1,6 +1,6 @@
 # karanik_WinMaintenance
 
-[![GitHub release](https://img.shields.io/badge/version-2.3-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
+[![GitHub release](https://img.shields.io/badge/version-2.4-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-blue?style=flat-square&logo=powershell)](https://github.com/PowerShell/PowerShell)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Server-lightgrey?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
@@ -125,7 +125,7 @@ The application features a clean two-panel layout:
 
 | ID | Script | Description |
 |---|---|---|
-| 3.1 | Clean all Temporary files | Cleans system temp, all user profiles, WU download cache, font cache, browser caches, Recycle Bin, and runs cleanmgr |
+| 3.1 | [Clean all Temporary files](#clean-temp-files) | Options dialog (9 steps, retention, dry run): system temp, all user profiles (Temp older than 24 h, Chrome/Edge all profiles, Teams), WU download cache, system caches, Recycle Bin, old IIS/WU logs and crash dumps, upgrade leftovers, cleanmgr with time limit, root junk; junction-safe |
 | 3.2 | Clear Teams cache only | Stops Teams, clears all cache folders for all user profiles (Classic + MSIX) |
 | 3.3 | Teams Full clean + reinstall | WPF GUI: selective uninstall steps + choice of Teams version to reinstall |
 | 3.4 | Cleanup SoftwareDistribution | Clears SoftwareDistribution folder (preserves DataStore/history) |
@@ -343,6 +343,136 @@ Exit code of the script: `0` = completed (with or without warnings), `1` = compl
 
 ---
 
+<a id="clean-temp-files"></a>
+
+## 🧹 Clean Temporary Files (3.1) — Options explained
+
+`CleanTempFiles.ps1` (v3.0.1) opens a dialog where you choose **what to clean** (9 steps), how long to **keep recent files** and whether to run a **dry run**. The script then runs the selected steps in order, writes every result to the launcher log and prints a summary with the real free space before and after.
+
+If nothing is clicked within **60 seconds**, all steps run with the default options, so the tool never blocks a Run Serial sequence. Any click or key press in the dialog cancels the countdown.
+
+### Steps at a glance
+
+| # | Step | What is cleaned | Safeguards |
+|---|---|---|---|
+| 1 | **System temp folders** | `Windows\Temp`, `Prefetch`, `LocalService\Temp`, Windows Error Reporting queues, CBS logs, `Downloaded Program Files` | Files in use are skipped |
+| 2 | **User profile temp and caches** (all users) | `Temp`, IE / Edge legacy cache and cookies, WER, `CrashDumps`, thumbnail / icon cache, `Recent`, Teams classic + new Teams cache, Chrome / Edge cache (**all profiles**), Firefox `cache2` | `Temp`: only files **older than 24 h**. Teams: skipped for users who have Teams running |
+| 3 | **Windows Update download cache** | `SoftwareDistribution\Download` | Skipped while Windows servicing (`TiWorker.exe`) is busy. Services stop with a 90 s limit; only services that were stopped are restarted |
+| 4 | **System caches** | Font cache, DNS cache, Delivery Optimization cache, *optional* Windows Installer `$PatchCache$` | `$PatchCache$` is opt-in (see below) |
+| 5 | **Recycle Bin** | All users (per-SID folders) | Only when larger than **100 MB** |
+| 6 | **Old logs and crash dumps** | IIS logs (`inetpub\logs\LogFiles`), `HTTPERR` logs, Windows Update ETL logs, `dism.log`, `MEMORY.DMP`, `Minidump`, `LiveKernelReports` | Logs older than **30 days**; dumps older than **7 days**; `dism.log` only when over **100 MB** and DISM is not running |
+| 7 | **Windows upgrade leftovers** | `$WINDOWS.~BT`, `$WINDOWS.~WS`, `$GetCurrent` | Only when older than **10 days**, no `Windows.old`, no setup running, no pending restart |
+| 8 | **Windows Disk Cleanup** | `cleanmgr /sagerun:100` (Update Cleanup, Previous Installations, and more) | Skipped while `TiWorker.exe` is busy; time limit (**40 min**) and stall detection |
+| 9 | **Root drive junk files** | `C:\*.tmp`, `*.gid`, `*.chk` (root only) | `*.bak` / `*.old` are **not** touched; `Windows.old` is only reported |
+
+### Options
+
+| Option in the dialog | Default | Range | Meaning |
+|---|---|---|---|
+| User temp files: keep newer than | 24 hours | 0–8760 | Protects files of running applications and installers (important on RDS servers). `0` = delete all |
+| IIS / Windows Update logs: keep newer than | 30 days | 0–3650 | Applies to IIS, HTTPERR and Windows Update ETL logs |
+| Crash dumps: keep newer than | 7 days | 0–3650 | Keeps the most recent dump for troubleshooting. `0` = delete all |
+| cleanmgr time limit | 40 minutes | 5–55 | cleanmgr is terminated when the limit is reached (same behaviour as the built-in SilentCleanup task) |
+| Also Windows Installer patch cache | off | — | Cleans `C:\Windows\Installer\$PatchCache$\Managed` |
+| **Dry run** | off | — | Reports what *would* be deleted. Nothing is deleted, no services are stopped, cleanmgr is not started |
+
+### Detailed description of each step
+
+#### 1. System temp folders
+- **What it does:** Deletes the contents of `C:\Windows\Temp`, `Prefetch`, `ServiceProfiles\LocalService\AppData\Local\Temp`, `ProgramData\Microsoft\Windows\WER\ReportArchive` / `ReportQueue`, the files in `Windows\Logs\CBS` and `Downloaded Program Files`.
+- **Notes:** Prefetch is rebuilt automatically by Windows. The active `CBS.log` is always in use and is skipped.
+
+#### 2. User profile temp and caches
+- **Which profiles:** Every real profile under `C:\Users` (service profiles, `Default`, `Public` and junctions are excluded).
+- **Temp age filter:** Only files older than the configured hours are deleted, so applications and installers that are running right now keep their files.
+- **Teams:** Microsoft requires Teams to be closed before clearing its cache. The script checks which users have `Teams.exe` (classic) or `ms-teams.exe` (new Teams) running and skips their Teams cache. The new Teams folder is `AppData\Local\Packages\MSTeams_8wekyb3d8bbwe\LocalCache\Microsoft\MSTeams`.
+- **Browsers:** Chrome and Edge `Cache`, `Code Cache` and `GPUCache` for every profile (`Default`, `Profile 1`, `Profile 2`, …, `Guest Profile`), Firefox `cache2` for every profile. Files locked by a running browser are skipped.
+
+#### 3. Windows Update download cache
+- **What it does:** Stops `wuauserv`, `bits` and `cryptsvc`, empties `SoftwareDistribution\Download`, then restarts **only the services it stopped**.
+- **Why the TiWorker check:** While Windows servicing (`TiWorker.exe`) is installing or cleaning up updates, `wuauserv` stays in `STOP_PENDING` until servicing finishes — on Windows Server 2016 this can take an hour or more. The script measures TiWorker CPU activity for 5 s and skips the step if it is busy.
+- **Stop with time limit:** Each service gets up to 90 s to stop. If `wuauserv` does not stop, the download cache is left untouched. The script never kills the service process (on Server 2016 these services share `svchost.exe` with other services).
+
+#### 4. System caches
+- **Font cache:** `FontCache` and `FontCache3.0.0.0` are stopped (30 s limit), the cache is deleted and the services are started again.
+- **DNS cache:** `ipconfig /flushdns`.
+- **Delivery Optimization:** `Delete-DeliveryOptimizationCache` where available (Windows 10 1709+ / Server 2019+); on Server 2016 the cache folders are cleaned directly.
+- **Installer patch cache (opt-in):** Microsoft documents that the baseline cache can be deleted, but uninstalling a patch or repairing the product may then ask for the original installation media or fail. Use it only when disk space is critical.
+
+#### 5. Recycle Bin
+- Emptied for **all users** (per-SID folders under `$Recycle.Bin`) only when the total size exceeds 100 MB; `desktop.ini` is kept.
+
+#### 6. Old logs and crash dumps
+- **IIS:** `*.log` files under `C:\inetpub\logs\LogFiles` older than the retention. Sites with a custom log folder (IIS Manager → Logging) are not covered.
+- **HTTPERR:** `*.log` under `C:\Windows\System32\LogFiles\HTTPERR`.
+- **Windows Update:** `*.etl` traces under `C:\Windows\Logs\WindowsUpdate`.
+- **dism.log:** a single file that is always recent, so age does not apply; it is deleted only when larger than 100 MB and no `dism.exe` / `DismHost.exe` is running (DISM recreates it).
+- **Crash dumps:** `MEMORY.DMP` and `Minidump\*.dmp` (paths read from `HKLM\SYSTEM\CurrentControlSet\Control\CrashControl`, so custom locations are honoured) and `LiveKernelReports\*.dmp`, older than the dump retention.
+
+#### 7. Windows upgrade leftovers
+- `$WINDOWS.~BT` can contain rollback data for a recent feature update, so every folder is cleaned only when **all** of these are true: it was last changed more than 10 days ago, no Windows setup process is running, no restart is pending, and (for `$WINDOWS.~BT`) `Windows.old` does not exist.
+- Protected files that cannot be deleted are reported; cleanmgr (step 8) removes the rest.
+
+#### 8. Windows Disk Cleanup (cleanmgr)
+- Sets `StateFlags0100` for the safe cleanmgr categories (including **Update Cleanup** and **Previous Installations**) and runs `cleanmgr /sagerun:100`.
+- **Duration:** *Update Cleanup* is a component store cleanup performed by TiWorker. It can take 30–60 minutes, especially on Windows Server 2016.
+- **Time limit:** cleanmgr is terminated after the configured minutes.
+- **Stall detection:** if cleanmgr, TiWorker and DismHost use no CPU for 10 minutes, cleanmgr is considered stuck and is terminated early.
+- **Progress:** every 5 minutes the log shows the elapsed time, the CPU time used in the last 5 minutes and whether TiWorker is running.
+- Skipped when cleanmgr is not installed (Server Core), when another cleanmgr is already running (e.g. the SilentCleanup task), or when TiWorker is busy.
+
+#### 9. Root drive junk files
+- Deletes `*.tmp`, `*.gid` and `*.chk` in the root of the system drive only (no subfolders). `DumpStack.log.tmp` is excluded (always held by the crash-dump driver).
+- `*.bak` and `*.old` are **not** deleted: on servers they can be SQL Server or user backups.
+- `Windows.old` is only reported; it is removed by cleanmgr → *Previous Windows installation(s)*.
+
+### Safety rules applied to every step
+
+| Rule | Why |
+|---|---|
+| Junctions and symbolic links are **never followed**; only the link itself is removed | Windows PowerShell 5.1 `Remove-Item -Recurse` can follow a junction and delete the contents of its target |
+| Files in use are skipped and counted as *locked/skipped* | No errors, no partially deleted application data |
+| Services are stopped with a time limit and never killed | Avoids endless `Waiting for service ... to stop` and does not take down co-hosted services |
+| Only services the script stopped are restarted | Services that were stopped before the run stay stopped |
+| Dry run measures with the same code path that deletes | The reported size matches what a real run removes (except cleanmgr and DNS) |
+
+### Logs and summary
+
+| Item | Contents |
+|---|---|
+| `Logs\CleanTempFiles_<timestamp>.log` | Selected options, one result line per location (`Done` / `Would delete` / `Nothing to clean` / `Locked/skip`), warnings and summary |
+| Summary: *Freed (counted)* | Bytes and files deleted by the script itself |
+| Summary: *Free space C:* | Real free space before → after (includes cleanmgr; other disk activity also affects it) |
+
+Exit code: `0` = completed (with or without warnings), `1` = completed with errors. The launcher allows this item up to **90 minutes** (`TimeoutSec=5400`).
+
+### Command line usage (outside the launcher)
+
+```powershell
+.\CleanTempFiles.ps1                                        # dialog (60 s auto-start)
+.\CleanTempFiles.ps1 -AutoStartSeconds 0                    # dialog without auto-start
+.\CleanTempFiles.ps1 -DryRun -NoDialog                      # report only, no window
+.\CleanTempFiles.ps1 -Steps "1,2,5" -NoDialog               # quick clean
+.\CleanTempFiles.ps1 -Steps 6 -LogRetentionDays 14 -NoDialog
+.\CleanTempFiles.ps1 -UserTempMinAgeHours 0 -NoDialog       # delete all user temp files
+```
+
+| Parameter | Environment variable | Default |
+|---|---|---|
+| `-Steps "1,2,6"` | `KARANIK_WM_CLEAN_STEPS` | all (1–9) |
+| `-DryRun` | `KARANIK_WM_CLEAN_DRYRUN=1` | off |
+| `-UserTempMinAgeHours` | `KARANIK_WM_CLEAN_TEMP_MIN_AGE_HOURS` | 24 |
+| `-LogRetentionDays` | `KARANIK_WM_CLEAN_LOG_DAYS` | 30 |
+| `-DumpRetentionDays` | `KARANIK_WM_CLEAN_DUMP_DAYS` | 7 |
+| `-CleanmgrTimeoutMin` | `KARANIK_WM_CLEANMGR_TIMEOUT_MIN` | 40 |
+| `-IncludePatchCache` | `KARANIK_WM_CLEAN_PATCHCACHE=1` | off |
+| `-NoDialog` | `KARANIK_WM_CLEAN_NODIALOG=1` | dialog shown |
+| `-AutoStartSeconds` | `KARANIK_WM_CLEAN_AUTOSTART_SEC` | 60 |
+
+Parameters override environment variables, which override the defaults. Values chosen in the dialog override all of them.
+
+---
+
 ## 🗂️ File Structure
 
 ```
@@ -375,11 +505,35 @@ Useful for deployments where no trace of the tool should remain after use.
 | **Script delivery** | `System.Net.WebClient.DownloadFile()` with validation (checks first 512 bytes for HTML/error responses) |
 | **Logging** | Dual-stream: structured `[INFO]/[SUCCESS]/[WARN]/[ERROR]` to log file + raw stdout/stderr to terminal panel |
 | **Execution types** | `Remote` (download+cache+run), `Standalone` (separate STA window for WPF scripts), `Inline` (irm\|iex in new elevated window) |
-| **Timeouts** | Global `$ExecTimeoutSec` (3600 s); optional per-item `TimeoutSec` in the catalog for `Remote` items (single run and Run Serial). On timeout the whole child process tree is terminated (`taskkill /T /F`) |
+| **Timeouts** | Global `$ExecTimeoutSec` (3600 s); optional per-item `TimeoutSec` in the catalog for `Remote` items (single run and Run Serial; `3.1` = 5400 s, `5.11` = 7200 s). On timeout the whole child process tree is terminated (`taskkill /T /F`) |
 
 ---
 
 ## 📝 Changelog
+
+### v2.4 — October 2026
+
+- **`3.1` Clean Temporary Files — rewritten (`CleanTempFiles.ps1` v3.0.1)**, see [Clean Temporary Files — Options explained](#clean-temp-files):
+  - **Options dialog** (same pattern as `5.11`): choose the 9 steps, retention for user temp files / logs / crash dumps, cleanmgr time limit, Installer patch cache and **dry run**. Auto-starts with the defaults after 60 s, so Run Serial is not blocked. Also available as parameters (`-Steps`, `-DryRun`, `-NoDialog`, …) and `KARANIK_WM_CLEAN_*` environment variables for use outside the launcher
+  - **Dry run** — reports per location what would be deleted and the total, without deleting anything, stopping services or starting cleanmgr
+  - **New step 6 — Old logs and crash dumps:** IIS (`inetpub\logs\LogFiles`) and `HTTPERR` logs and Windows Update ETL logs older than 30 days; `dism.log` when over 100 MB and DISM is not running; `MEMORY.DMP`, `Minidump` and `LiveKernelReports` dumps older than 7 days (dump paths read from `CrashControl`)
+  - **New step 7 — Windows upgrade leftovers:** `$WINDOWS.~BT`, `$WINDOWS.~WS`, `$GetCurrent`, only when older than 10 days, no `Windows.old` (rollback), no setup running and no pending restart
+  - **User Temp age filter** — only files older than 24 h are deleted, so running applications and installers on RDS servers keep their files
+  - **Browsers / Teams** — Chrome and Edge `Cache`, `Code Cache`, `GPUCache` for **all** profiles (previously `Default` only); new Teams (MSIX) cache added; Teams caches are skipped for users who have Teams running (Microsoft requirement)
+  - **IconCache.db** cleaned for every profile (previously the current user only)
+  - **Windows Update cache (step 3)** — skipped while Windows servicing (`TiWorker.exe`) is busy; services stop with a 90 s limit instead of waiting forever (`Waiting for service 'Windows Update (wuauserv)' to stop...` on Server 2016); only the services that were stopped are restarted; the service process is never killed (shared `svchost.exe`)
+  - **cleanmgr (step 8)** — time limit (default 40 min) instead of waiting without limit; **stall detection** (no CPU activity of cleanmgr / TiWorker / DismHost for 10 min → terminated); progress line every 5 min with CPU used; skipped while TiWorker is busy or another cleanmgr (SilentCleanup) is running
+  - **Junction-safe deletion engine** for all steps — junctions / symlinks are never followed (Windows PowerShell 5.1 `Remove-Item -Recurse` can delete the contents of a junction target); freed bytes are counted during deletion, so large folders are no longer scanned twice
+  - **Summary** shows the real free space of the system drive before → after, in addition to the counted bytes
+  - **Fixed:** byte counts printed to the console after every folder (`17102`, `0`, `129486620`, …)
+  - **Fixed:** `Add-Content : Stream was not readable` — the log is now appended with shared read/write access and retries
+  - **Fixed:** `Get-Item : Could not find item ...\IconCache.db` and the false `Deleted icon cache: 0 B` (hidden file read without `-Force`)
+  - **Fixed:** Installer patch cache path — `"$PatchCache$"` inside double quotes expanded to `Installer\$\Managed`; the step is now opt-in
+  - **Fixed:** Delivery Optimization cache path; `Delete-DeliveryOptimizationCache` is used where available
+  - **Fixed:** font cache files stayed locked — `FontCache` / `FontCache3.0.0.0` are now stopped with a time limit before cleaning
+  - **Safety — removed:** deletion of `*.bak` / `*.old` in the root of `C:` (can be SQL Server or user backups) and forced deletion of `Windows.old` with `takeown` / `icacls` / `Remove-Item` (junction risk); `Windows.old` is now reported and removed by cleanmgr *Previous Installations*
+- **Launcher catalog `3.1`** — new detailed tooltip; `TimeoutSec=5400` (90 min) so a long cleanmgr run is not cut by the global 3600 s limit
+- **README: new section [Clean Temporary Files — Options explained](#clean-temp-files)** with the steps table, options, detailed description of each step, safety rules, logs and command line parameters
 
 ### v2.3 — October 2026
 
