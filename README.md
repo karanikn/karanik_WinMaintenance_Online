@@ -29,6 +29,10 @@
 |---|
 | ![WinDiag-AI](https://raw.githubusercontent.com/karanikn/WinDiag-AI/main/Screenshots/WinDiag-AI-Main.png) |
 
+| Clean Temporary Files | DISM / SFC Repair |
+|---|---|
+| ![Clean Temporary Files](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/CleanTemp.png) | ![DISM / SFC Repair](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/DISM-SFC.png) |
+
 ---
 
 ## ✨ Overview
@@ -185,6 +189,8 @@ The application features a clean two-panel layout:
 <a id="dism-sfc-repair"></a>
 
 ## 🩺 DISM / SFC Repair (5.11) — Options explained
+
+![DISM / SFC Repair dialog](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/DISM-SFC.png)
 
 `DISM-SFC.ps1` opens a dialog where you choose **one** operation. The script then runs it, writes live progress to the launcher log and prints a summary at the end.
 
@@ -346,6 +352,8 @@ Exit code of the script: `0` = completed (with or without warnings), `1` = compl
 <a id="clean-temp-files"></a>
 
 ## 🧹 Clean Temporary Files (3.1) — Options explained
+
+![Clean Temporary Files dialog](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/CleanTemp.png)
 
 `CleanTempFiles.ps1` (v3.0.1) opens a dialog where you choose **what to clean** (9 steps), how long to **keep recent files** and whether to run a **dry run**. The script then runs the selected steps in order, writes every result to the launcher log and prints a summary with the real free space before and after.
 
@@ -534,6 +542,7 @@ Useful for deployments where no trace of the tool should remain after use.
   - **Safety — removed:** deletion of `*.bak` / `*.old` in the root of `C:` (can be SQL Server or user backups) and forced deletion of `Windows.old` with `takeown` / `icacls` / `Remove-Item` (junction risk); `Windows.old` is now reported and removed by cleanmgr *Previous Installations*
 - **Launcher catalog `3.1`** — new detailed tooltip; `TimeoutSec=5400` (90 min) so a long cleanmgr run is not cut by the global 3600 s limit
 - **README: new section [Clean Temporary Files — Options explained](#clean-temp-files)** with the steps table, options, detailed description of each step, safety rules, logs and command line parameters
+- **README: screenshots** of the Clean Temporary Files and DISM / SFC Repair dialogs (Screenshots table and top of each options section)
 
 ### v2.3 — October 2026
 
