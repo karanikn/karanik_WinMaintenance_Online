@@ -33,6 +33,10 @@
 |---|---|
 | ![Clean Temporary Files](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/CleanTemp.png) | ![DISM / SFC Repair](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/DISM-SFC.png) |
 
+| Repair-PrintSystem |
+|---|
+| ![Repair-PrintSystem](https://raw.githubusercontent.com/karanikn/karanik_WinMaintenance_Online/main/Screenshots/Repair-PrintSystem.png) |
+
 ---
 
 ## ✨ Overview
@@ -176,7 +180,7 @@ The application features a clean two-panel layout:
 | 6.7 | Network Scanner | WinForms GUI network scanner: subnet scan, MAC/vendor identification, rogue DHCP server detection |
 | 6.8 | AD Domain Toolkit | Interactive console menu for AD diagnostics and confirmed repairs: replication health, DNS/DC discovery, secure channel, time sync, SYSVOL/NETLOGON checks, HTML+JSON report export (requires RSAT) |
 | 6.9 | M365 User Reset | Resets Microsoft 365 authentication for a user: clears WAM accounts, Identity/Licensing registry, OneAuth/IdentityCache caches, Office credentials; optional Outlook profile reset + Autodiscover fix. Creates timestamped backup with .reg backups and full log. Requires Windows PowerShell 5.1 |
-| 6.10 | Repair-PrintSystem | Interactive console menu that diagnoses, repairs, resets and restores the Windows printing subsystem: full audit with HTML report, spooler crash analysis (faulting DLL mapped to driver/monitor), network printing checks and reversible workarounds for 0x11b / 0x709 / 0xbcb, spooler service repair, stuck jobs and spool reset, one-by-one removal of printers / drivers / ports / orphan monitors, full reset that keeps PDF / XPS / Fax, automatic backup before every change and full restore |
+| 6.10 | Repair-PrintSystem | WPF window with live output panel (console menu on Server Core) that diagnoses, repairs, resets and restores the Windows printing subsystem: status header with Spooler state and warnings, full audit with HTML report, spooler crash analysis (faulting DLL mapped to driver/monitor), network printing checks and reversible workarounds for 0x11b / 0x709 / 0xbcb, spooler service repair, stuck jobs and spool reset, checklist removal of printers / drivers / ports / orphan monitors, full reset that keeps PDF / XPS / Fax (typed `RESET`), automatic backup before every change and restore from a backup list |
 
 ### 🏢 Office Tools
 
@@ -540,9 +544,10 @@ Useful for deployments where no trace of the tool should remain after use.
   - **Fixed:** Delivery Optimization cache path; `Delete-DeliveryOptimizationCache` is used where available
   - **Fixed:** font cache files stayed locked — `FontCache` / `FontCache3.0.0.0` are now stopped with a time limit before cleaning
   - **Safety — removed:** deletion of `*.bak` / `*.old` in the root of `C:` (can be SQL Server or user backups) and forced deletion of `Windows.old` with `takeown` / `icacls` / `Remove-Item` (junction risk); `Windows.old` is now reported and removed by cleanmgr *Previous Installations*
+- **`6.10` Repair-PrintSystem v2.1.3 — WPF interface:** main window with status header (Spooler badge, counts, warnings), option list with descriptions, **output panel** where the messages and tables of every action appear live (Clear / Copy / Save as..., also saved to `output.txt`) and a *Last* result line; checklist dialogs for every removal (nothing pre-selected), typed confirmation for `RESET` / `YES`, workarounds dialog with current values and risk levels, backup list for restore; console menu kept as fallback (`-Console`, Server Core); log lines now appear live in the launcher log; catalog tooltip updated
 - **Launcher catalog `3.1`** — new detailed tooltip; `TimeoutSec=5400` (90 min) so a long cleanmgr run is not cut by the global 3600 s limit
 - **README: new section [Clean Temporary Files — Options explained](#clean-temp-files)** with the steps table, options, detailed description of each step, safety rules, logs and command line parameters
-- **README: screenshots** of the Clean Temporary Files and DISM / SFC Repair dialogs (Screenshots table and top of each options section)
+- **README: screenshots** of the Clean Temporary Files and DISM / SFC Repair dialogs (Screenshots table and top of each options section) and of the Repair-PrintSystem window
 
 ### v2.3 — October 2026
 
