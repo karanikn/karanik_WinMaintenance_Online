@@ -418,6 +418,8 @@ $Catalog = @(
     Tooltip="Advanced repair tool for Microsoft 365 / Exchange Online Outlook authentication issues.`n`nActions performed:`n  - Installs WebView2 if missing`n  - Cleans AAD BrokerPlugin / IdentityCache / OneAuth caches`n  - Resets stored Office / ADAL / SSO credentials`n  - Collects AAD Broker registration diagnostics`n  - Detects join state (Azure AD / Entra / Hybrid / Domain)`n  - Exports AAD, Office, WAM, AppX event logs`n  - Tests network connectivity to Microsoft 365 auth endpoints`n  - Triggers Office Click-to-Run repair (best effort)`n  - Exports full diagnostics package`n`nUseful for: Outlook sign-in window opens and closes, Modern Auth popup crashes, WAM/token corruption." },
   [pscustomobject]@{ Id="5.10"; Title="Remove iCloud (All Users)";                   Type="Remote"; ScriptName="Remove_iCloud_AllUsers.ps1";         Sha256=$null; Group="Fix Tools";
     Tooltip="Removes iCloud / Apple components from ALL local user profiles.`n`nAlways performed:`n  - Kills: Outlook, iCloud, iCloudServices, AppleOutlookDAVConfig, msedgewebview2`n  - Deletes Apple/iCloud folders under C:\Users\*\AppData (Local + Roaming)`n  - Deletes C:\ProgramData\Apple*`n`nNot performed by default (requires script modification):`n  - Appx package removal (-RemovePackages)`n  - Program Files removal (-RemoveProgramFiles)`n  - Registry cleanup (-RemoveRegistry)`n  - Scheduled Tasks removal (-RemoveScheduledTasks)`n  - Services removal (-RemoveServices)`n`nRESTART REQUIRED after completion.`nRecommended for troubleshooting environments only." },
+  [pscustomobject]@{ Id="5.11"; Title="DISM / SFC Repair";                           Type="Remote"; ScriptName="DISM-SFC.ps1";                       Sha256=$null; Group="Fix Tools"; TimeoutSec=7200;
+    Tooltip="DISM / SFC Repair v1.0`nby Nikolaos Karanikolas`n`nChecks and repairs the Windows component store (DISM) and protected system files (SFC).`nA dialog asks which operation to run.`n`nFeatures:`n  - Quick check: DISM /CheckHealth (seconds, read-only)`n  - Full scan: DISM /ScanHealth (read-only)`n  - Repair image: DISM /RestoreHealth`n  - Repair system files: SFC /scannow`n  - Repair image + system files: DISM, then SFC (recommended, default)`n  - Analyze component store: DISM /AnalyzeComponentStore`n  - Clean up component store: DISM /StartComponentCleanup (+ optional /ResetBase)`n  - Optional repair source: install.wim / install.esd + index, /LimitAccess`n  - Live progress in the launcher log; SFC [SR] lines exported from CBS.log`n  - Language independent result evaluation (DISM /English, CBS.log)`n`nAuto-starts the recommended option after 60s if nothing is clicked (batch friendly).`nRuntime: 20-60 min for DISM + SFC. Timeout for this item: 2 hours.`n`nRequires: Administrator. Windows 8 / Server 2012 or later for DISM operations." },
 
   # ── 6. Extra Tools ─────────────────────────────────────────────────────────
   [pscustomobject]@{ Id="6.1"; Title="Reset RDS Licensing Grace Period (Windows Server)"; Type="Remote";  ScriptName="RDS-GracePeriod-Manager.ps1"; Sha256=$null; Group="Extra Tools";
@@ -1440,9 +1442,11 @@ $Script:WorkerHelpers = {
   function Invoke-DownloadedScript {
     param(
       [string]$ScriptPath,
-      [string]$LogBaseName = ""
+      [string]$LogBaseName = "",
+      [int]$TimeoutSec = 0          # 0 = use global $ExecTimeoutSec
     )
     if (-not [System.IO.File]::Exists($ScriptPath)) { throw "Script not found: $ScriptPath" }
+    $effTimeout = $(if ($TimeoutSec -gt 0) { $TimeoutSec } else { $ExecTimeoutSec })
 
     $psExe = Get-ChildPowerShell
 
@@ -1492,9 +1496,15 @@ $Script:WorkerHelpers = {
 
     while ($true) {
       $elapsed = ([datetime]::Now - $started).TotalMilliseconds
-      if ($elapsed -ge ($ExecTimeoutSec * 1000)) {
-        try { $proc.Kill() } catch { }
-        throw "Execution timeout after $ExecTimeoutSec sec: $ScriptPath"
+      if ($elapsed -ge ($effTimeout * 1000)) {
+        # Kill the whole process tree: child native tools (dism.exe, sfc.exe, winget...)
+        # would otherwise keep running after powershell.exe is terminated.
+        try {
+          $tk = Join-Path $env:SystemRoot "System32\taskkill.exe"
+          & $tk /PID $proc.Id /T /F 2>&1 | Out-Null
+        } catch { }
+        try { if (-not $proc.HasExited) { $proc.Kill() } } catch { }
+        throw "Execution timeout after $effTimeout sec: $ScriptPath"
       }
 
       # Tail child log file -> ProgressQueue (shows in txtOutput via Ui-Append)
@@ -1558,7 +1568,7 @@ $Script:WorkerJob = {
       Report "Executing..." "INFO"
       # Extract clean script name from URL for the log filename (e.g. "UpdateWindows" from ".../UpdateWindows.ps1")
       $cleanName = [System.IO.Path]::GetFileNameWithoutExtension(($job.Url -split "[/?]" | Select-Object -Last 1))
-      $exit = Invoke-DownloadedScript -ScriptPath $local -LogBaseName $cleanName
+      $exit = Invoke-DownloadedScript -ScriptPath $local -LogBaseName $cleanName -TimeoutSec ([int]$job.TimeoutSec)
       Report ("ExitCode: {0}" -f $exit) "INFO"
       return $exit
     }
@@ -1573,7 +1583,7 @@ $Script:WorkerJob = {
           $local = Download-RemoteScript -Url $sub.Url -ExpectedSha256 $sub.Sha256 -Force $job.Force
           Report ("Cached: {0}" -f $local) "INFO"
           $cleanName2 = [System.IO.Path]::GetFileNameWithoutExtension(($sub.Url -split "[/?]" | Select-Object -Last 1))
-          $exit = Invoke-DownloadedScript -ScriptPath $local -LogBaseName $cleanName2
+          $exit = Invoke-DownloadedScript -ScriptPath $local -LogBaseName $cleanName2 -TimeoutSec ([int]$sub.TimeoutSec)
           Report ("ExitCode: {0}" -f $exit) "INFO"
           if ($exit -ne 0) { $anyFail = $true }
         } catch {
@@ -1870,11 +1880,12 @@ function Start-RunRemoteItem($Item) {
   Ui-SetStatus "Running..."
 
   $job = [pscustomobject]@{
-    Type  = "Remote"
-    Title = $Item.Title
-    Url   = $url
-    Sha256= $Item.Sha256
-    Force = $force
+    Type       = "Remote"
+    Title      = $Item.Title
+    Url        = $url
+    Sha256     = $Item.Sha256
+    Force      = $force
+    TimeoutSec = $Item.TimeoutSec   # optional per-item override of $ExecTimeoutSec
   }
   Start-WorkerJob -Job $job
 }
@@ -1889,9 +1900,10 @@ function Start-RunBatch([array]$Items) {
     $u = Resolve-RemoteUrl -ScriptName $it.ScriptName
     if (-not $u) { continue }
     $batchItems += [pscustomobject]@{
-      Title = (Strip-MenuPrefix $it.Title)
-      Url   = $u
-      Sha256= $it.Sha256
+      Title      = (Strip-MenuPrefix $it.Title)
+      Url        = $u
+      Sha256     = $it.Sha256
+      TimeoutSec = $it.TimeoutSec
     }
   }
 

@@ -1,6 +1,6 @@
 # karanik_WinMaintenance
 
-[![GitHub release](https://img.shields.io/badge/version-2.2-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
+[![GitHub release](https://img.shields.io/badge/version-2.3-blue?style=flat-square)](https://github.com/karanikn/karanik_WinMaintenance)
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%20%7C%207.x-blue?style=flat-square&logo=powershell)](https://github.com/PowerShell/PowerShell)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Server-lightgrey?style=flat-square&logo=windows)](https://www.microsoft.com/windows)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
@@ -157,6 +157,7 @@ The application features a clean two-panel layout:
 | 5.8 | WebView2 Repair / Install | Checks, downloads and installs Microsoft Edge WebView2 Runtime |
 | 5.9 | WebView2 / Outlook Auth Repair (Advanced) | Full Outlook Modern Auth / WAM / AAD BrokerPlugin repair + diagnostics export |
 | 5.10 | Remove iCloud (All Users) | Removes iCloud/Apple components from all user profiles; kills related processes |
+| 5.11 | [DISM / SFC Repair](#dism-sfc-repair) | WPF dialog: DISM `/CheckHealth`, `/ScanHealth`, `/RestoreHealth`, `SFC /scannow`, DISM + SFC (recommended), `/AnalyzeComponentStore`, `/StartComponentCleanup` (+ `/ResetBase`); optional `install.wim`/`.esd` repair source; live progress; SFC `[SR]` lines exported from CBS.log |
 
 ### ⭐ Extra Tools
 
@@ -178,6 +179,167 @@ The application features a clean two-panel layout:
 | ID | Script | Description |
 |---|---|---|
 | 7.1 | Office Tools | Click-to-Run update control, Quick/Online repair, SaRA Enterprise (13 scenarios), Microsoft Connectivity Check (DNS/TCP/HTTPS/Traceroute/Proxy/Firewall), Outlook/Office Diagnostics collector (HTML report, Repair Mode, Full Health Checks with SFC/DISM) |
+
+---
+
+<a id="dism-sfc-repair"></a>
+
+## 🩺 DISM / SFC Repair (5.11) — Options explained
+
+`DISM-SFC.ps1` opens a dialog where you choose **one** operation. The script then runs it, writes live progress to the launcher log and prints a summary at the end.
+
+If nothing is clicked within **60 seconds**, the recommended option (**Repair image + system files**) starts automatically, so the tool never blocks a Run Serial sequence. Any click or key press in the dialog cancels the countdown.
+
+### Background: what DISM and SFC actually check
+
+Windows keeps a master copy of every system component in the **component store** (`C:\Windows\WinSxS`). The two tools work on different layers:
+
+| Tool | Checks | Repairs from |
+|---|---|---|
+| **DISM** (`/Online /Cleanup-Image`) | The component store itself (the "master copies") | Windows Update, or a repair source (`install.wim` / `install.esd`) |
+| **SFC** (`sfc /scannow`) | The protected system files Windows actually uses (`System32`, etc.) | The component store |
+
+This is why the order matters: if the component store is damaged, SFC repairs files *from damaged copies* or cannot repair them at all. Microsoft therefore recommends running **DISM first, then SFC**.
+
+### Options at a glance
+
+| # | Option in the dialog | Command | Changes the system? | Typical duration* | Use it when |
+|---|---|---|---|---|---|
+| 1 | **Quick check** | `DISM /Online /Cleanup-Image /CheckHealth` | No | Seconds | You want a fast first look before deciding anything |
+| 2 | **Full scan** | `DISM /Online /Cleanup-Image /ScanHealth` | No | 5–20 min | You want a reliable diagnosis without repairing |
+| 3 | **Repair image** | `DISM /Online /Cleanup-Image /RestoreHealth` | Yes | 10–40 min | The scan found corruption, or Windows Update / feature installation fails |
+| 4 | **Repair system files** | `sfc /scannow` | Yes | 10–30 min | Windows behaves oddly (crashes, missing features) and DISM has already been run |
+| 5 | **Repair image + system files** ⭐ | DISM `/RestoreHealth`, then `sfc /scannow` | Yes | 20–60 min | **Default and recommended** for any "Windows is broken" case |
+| 6 | **Analyze component store** | `DISM /Online /Cleanup-Image /AnalyzeComponentStore` | No | 1–5 min | You want to know the real WinSxS size and whether a cleanup is worth it |
+| 7 | **Clean up component store** | `DISM /Online /Cleanup-Image /StartComponentCleanup` | Yes | 5–30 min | WinSxS is large and option 6 says cleanup is recommended |
+| 7+ | …with **/ResetBase** | `… /StartComponentCleanup /ResetBase` | Yes, **irreversible** | 10–60 min | Maximum space recovery on a stable, fully updated system (e.g. before imaging) |
+
+\* Durations are indicative; they depend on disk speed (SSD/HDD), CPU, the size of the component store and the internet connection.
+
+All DISM commands are run with `/English`, so the output can be evaluated correctly on any Windows display language (e.g. Greek).
+
+### Detailed description of each option
+
+#### 1. Quick check — `DISM /CheckHealth`
+- **What it does:** Reads whether Windows has *already recorded* the component store as corrupted (for example, by a failed update or a previous scan). It does **not** scan the files.
+- **Possible results:** *No component store corruption detected* / *The component store is repairable* / *The component store cannot be repaired*.
+- **Limitation:** "No corruption detected" only means that nothing has been recorded — it is not proof of a healthy system. For a real check use option 2.
+- **Changes:** None.
+
+#### 2. Full scan — `DISM /ScanHealth`
+- **What it does:** Scans every component in the component store and verifies it. Details are written to `C:\Windows\Logs\CBS\CBS.log`.
+- **Possible results:** Same three results as option 1, but based on an actual scan.
+- **When the result is "repairable":** run option 3 or 5.
+- **When the result is "cannot be repaired":** a repair install (in-place upgrade from the same Windows version ISO, keeping files and apps) is usually the next step.
+- **Changes:** None.
+
+#### 3. Repair image — `DISM /RestoreHealth`
+- **What it does:** Scans the component store and **replaces damaged components** with good copies. By default the good copies are downloaded from **Windows Update**; alternatively a **repair source** can be specified (see below).
+- **Progress:** The percentage can stay on the same value for several minutes. This is normal; do not stop the process.
+- **Common failure:** `0x800F081F` — source files not found. Usually Windows Update cannot be reached (WSUS, proxy, Group Policy) or the source does not match the installed build. Solution: use a repair source of the same version and build.
+- **Changes:** Yes, the component store is repaired. A restart may be requested (exit code `3010`).
+
+#### 4. Repair system files — `sfc /scannow`
+- **What it does:** Verifies all protected system files against the copies in the component store and **replaces any modified, damaged or missing file**.
+- **Possible results (as shown by SFC):**
+  - *Did not find any integrity violations* — all files are fine.
+  - *Found corrupt files and successfully repaired them* — repaired; a restart is recommended.
+  - *Found corrupt files but was unable to fix some of them* — run DISM `/RestoreHealth` (option 3), restart, then run SFC again.
+  - *Could not perform the requested operation* — usually a pending restart; restart and run again, or run SFC from Safe Mode.
+- **How the script evaluates it:** SFC's console text is translated into the Windows language, so the script does not rely on it. It reads the `[SR]` lines of **this run** from `C:\Windows\Logs\CBS\CBS.log` (always in English), counts repaired / unrepaired files and saves those lines to `DISM-SFC_<timestamp>_sfcdetails.txt` in the log folder.
+- **Changes:** Yes, damaged system files are replaced.
+
+#### 5. Repair image + system files ⭐ (recommended, default)
+- **What it does:** Option 3 followed by option 4, in the order Microsoft recommends.
+- **Why this is the default:** It covers both layers. Running only SFC on a damaged component store often ends with "unable to fix some of them".
+- **If DISM fails:** SFC still runs (it may still repair files whose store copies are intact), and the log clearly states that DISM did not complete.
+- **Changes:** Yes. A restart is recommended at the end if anything was repaired.
+
+#### 6. Analyze component store — `DISM /AnalyzeComponentStore`
+- **What it does:** Reports the **real** size of WinSxS. File Explorer over-reports it, because many files are hard links that also appear in `System32` and are counted twice.
+- **Main fields in the output:**
+
+  | Field | Meaning |
+  |---|---|
+  | Windows Explorer Reported Size | The size Explorer shows (hard links counted more than once) |
+  | Actual Size of Component Store | The real disk usage, hard links counted once |
+  | Shared with Windows | Files that are part of the running Windows — not overhead |
+  | Backups and Disabled Features | Old component versions kept for rollback, and disabled features — overhead |
+  | Cache and Temporary Data | Internal servicing cache — overhead |
+  | Date of Last Cleanup | When the last component cleanup finished |
+  | Number of Reclaimable Packages | Superseded packages a cleanup could remove |
+  | Component Store Cleanup Recommended | Yes / No |
+
+- The script reads the last field and tells you in the log whether option 7 is worth running.
+- **Changes:** None.
+
+#### 7. Clean up component store — `DISM /StartComponentCleanup`
+- **What it does:** Removes **superseded** component versions (older versions replaced by newer updates). Windows does the same automatically through a scheduled task, but that task waits 30 days after an update and stops after 1 hour. This command removes them **immediately** and without a time limit.
+- **Effect:** Frees disk space. Without `/ResetBase`, Windows keeps what it needs for normal servicing.
+- **The script logs** the free space on the system drive before and after.
+- **Changes:** Yes.
+
+#### 7+. Option `/ResetBase` (checkbox under option 7)
+- **What it does:** Removes **all** superseded versions of every component.
+- ⚠️ **Irreversible:** after it completes, **updates that are already installed can no longer be uninstalled**. Updates installed later can still be uninstalled normally. The dialog asks for confirmation before it runs.
+- **Use it only** on a stable system where you are sure you will not need to roll back an update (e.g. before creating a reference image or on a server with a strict disk budget).
+
+### Repair source (optional, for options 3 and 5)
+
+Used when Windows Update cannot provide the repair files (offline machines, WSUS, error `0x800F081F` / `0x800F0906` / `0x800F0907`).
+
+1. Mount a Windows ISO of the **same version, edition and build** as the installed system (e.g. Windows 11 25H2, Pro).
+2. Click **Browse…** and select `sources\install.wim` or `sources\install.esd` on the mounted drive.
+3. The dropdown lists the editions inside the file; the one matching the installed edition is selected automatically. You can also type the index manually.
+4. If the build of the selected image differs from the installed build, the dialog warns you — the repair will most likely fail.
+5. **Do not use Windows Update as a repair source (`/LimitAccess`)** — when checked, DISM uses **only** your file. It is checked automatically when a file is selected.
+
+The resulting parameter is `/Source:Wim:<path>:<index>` (or `Esd:`). A folder (e.g. a mounted image's `Windows` folder) is also accepted.
+
+> Tip: an ISO that is older than the installed cumulative update can still fail, because the target needs newer file versions than the source contains.
+
+### Pre-flight checks (before any operation)
+
+| Check | Why |
+|---|---|
+| Pending restart (CBS / Windows Update) | SFC may refuse to run ("there is a system repair pending") and DISM results are unreliable |
+| Free space on the system drive (< 5 GB) | DISM repair and cleanup need working space |
+| Windows Modules Installer (TrustedInstaller) disabled | SFC and DISM repair cannot work without it |
+| Another `dism.exe` already running | Two servicing operations at the same time interfere |
+
+Warnings do not stop the run; they are written to the log so you know why a result may be unreliable.
+
+### Recommended workflow
+
+1. **Repair image + system files** (option 5) — covers most cases.
+2. Restart Windows if anything was repaired.
+3. If SFC reports files it could not repair: run option 5 again after the restart.
+4. If DISM fails with `0x800F081F`: run option 3 or 5 with a **repair source** from a matching ISO.
+5. If DISM reports *cannot be repaired*: a repair install (in-place upgrade) is the next step.
+6. For disk space: option 6 first, then option 7 only if cleanup is recommended.
+
+### Logs and result files
+
+| File | Contents |
+|---|---|
+| `Logs\DISM-SFC_<timestamp>.log` | Full run log: pre-flight checks, commands, output, progress, summary |
+| `Logs\DISM-SFC_<timestamp>_sfcdetails.txt` | `[SR]` lines from CBS.log for this SFC run (only when SFC ran) |
+| `C:\Windows\Logs\DISM\dism.log` | Detailed DISM log (Windows) |
+| `C:\Windows\Logs\CBS\CBS.log` | Detailed servicing / SFC log (Windows) |
+
+Exit code of the script: `0` = completed (with or without warnings), `1` = completed with errors. The launcher allows this item up to **2 hours** (`TimeoutSec=7200`) instead of the default 1 hour.
+
+### Command line usage (outside the launcher)
+
+```powershell
+.\DISM-SFC.ps1                                    # dialog (60 s auto-start)
+.\DISM-SFC.ps1 -AutoStartSeconds 0                # dialog without auto-start
+.\DISM-SFC.ps1 -Mode RestoreHealthSfc             # no dialog
+.\DISM-SFC.ps1 -Mode RestoreHealth -Source "Wim:D:\sources\install.wim:6" -LimitAccess
+.\DISM-SFC.ps1 -Mode ComponentCleanup -ResetBase  # irreversible, see above
+```
+
+`-Mode` values: `Menu`, `CheckHealth`, `ScanHealth`, `RestoreHealth`, `Sfc`, `RestoreHealthSfc`, `AnalyzeComponentStore`, `ComponentCleanup`.
 
 ---
 
@@ -213,10 +375,19 @@ Useful for deployments where no trace of the tool should remain after use.
 | **Script delivery** | `System.Net.WebClient.DownloadFile()` with validation (checks first 512 bytes for HTML/error responses) |
 | **Logging** | Dual-stream: structured `[INFO]/[SUCCESS]/[WARN]/[ERROR]` to log file + raw stdout/stderr to terminal panel |
 | **Execution types** | `Remote` (download+cache+run), `Standalone` (separate STA window for WPF scripts), `Inline` (irm\|iex in new elevated window) |
+| **Timeouts** | Global `$ExecTimeoutSec` (3600 s); optional per-item `TimeoutSec` in the catalog for `Remote` items (single run and Run Serial). On timeout the whole child process tree is terminated (`taskkill /T /F`) |
 
 ---
 
 ## 📝 Changelog
+
+### v2.3 — October 2026
+
+- **1 new tool added to Fix Tools:**
+  - `5.11` **DISM / SFC Repair** (`DISM-SFC.ps1`) — WPF dialog to choose the operation: Quick check (`/CheckHealth`), Full scan (`/ScanHealth`), Repair image (`/RestoreHealth`), Repair system files (`SFC /scannow`), Repair image + system files (DISM then SFC, Microsoft recommended order, default), Analyze component store, Clean up component store (optional `/ResetBase` with confirmation). Optional repair source (`install.wim` / `install.esd`) with automatic image list, edition pre-selection, build mismatch warning and `/LimitAccess`. Pre-flight checks (pending restart, free space, TrustedInstaller disabled, running DISM). Live progress in the launcher log (throttled to 10% steps). DISM runs with `/English` and the SFC verdict is taken from `CBS.log` `[SR]` lines, so results are evaluated correctly on Greek Windows; the `[SR]` lines are saved as `DISM-SFC_<timestamp>_sfcdetails.txt` next to the log. SFC UTF-16 output is decoded correctly. Auto-starts the recommended option after 60 s if nothing is clicked, so it does not block Run Serial
+- **README: new section [DISM / SFC Repair — Options explained](#dism-sfc-repair)** with the options table, a detailed description of each option, repair source steps, pre-flight checks, recommended workflow and log files
+- **Per-item execution timeout** — catalog entries can set `TimeoutSec` to override the global 3600 s limit (`5.11` uses 7200 s); honoured for single runs and Run Serial
+- **Timeout now kills the process tree** — previously only `powershell.exe` was killed and native child tools (e.g. `dism.exe`) kept running in the background
 
 ### v2.2 — October 2026
 
